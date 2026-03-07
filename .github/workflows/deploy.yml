@@ -28,4 +28,4 @@ jobs:
           context: .
           push: true
           # Kleinschreibung ist wichtig: ghcr.io/nutzer/projekt:tag
-          tags: ghcr.io/Louner420/KI_Trend_Analyse:latest
+          tags: ghcr.io/${{ github.repository }}:latest
