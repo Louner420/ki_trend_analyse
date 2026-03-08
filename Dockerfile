@@ -1,5 +1,6 @@
 # 1. Basis-Image: Schlankes Python 3.9 (Ideal für Performance)
-FROM python:3.9-slim
+ARG PYTHON_VERSION=3.11.9
+FROM python:${PYTHON_VERSION}-slim
 
 # 2. Arbeitsverzeichnis im Container festlegen
 WORKDIR /app
@@ -17,8 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 
 # 5. Alle Libraries installieren
-RUN pip install --no-cache-dir -r requirements.txt
-
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+    
 # 6. Das GESAMTE Projekt kopieren
 # Kopiert web/, scraper/, ki_logic/ und alle anderen Ordner.
 COPY . .
