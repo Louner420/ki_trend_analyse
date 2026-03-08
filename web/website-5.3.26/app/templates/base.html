@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title or "TrendDash" }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <script>
+    (function(){
+      if (localStorage.getItem('trenddash_theme') === 'light') document.documentElement.classList.add('theme-light');
+    })();
+    </script>
+</head>
+
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+<body>
+<!-- Icon set (monochrome, no emoji) -->
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden">
+    <symbol id="i-home" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3l9-8z"/>
+    </symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M7 2h2v2h6V2h2v2h3v18H4V4h3V2zm13 8H4v10h16V10z"/>
+    </symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 2l1.6 6.2L20 10l-6.4 1.8L12 18l-1.6-6.2L4 10l6.4-1.8L12 2z"/>
+    </symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M4 19h16v2H2V3h2v16zm4-2H6V9h2v8zm5 0h-2V5h2v12zm5 0h-2v-6h2v6z"/>
+    </symbol>
+    <symbol id="i-search" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M10 2a8 8 0 105.3 14l4.7 4.7 1.4-1.4-4.7-4.7A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z"/>
+    </symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M4 4h16v11H7l-3 3V4zm2 2v8.2L6.2 14H18V6H6z"/>
+    </symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 22a2.5 2.5 0 002.45-2h-4.9A2.5 2.5 0 0012 22zm7-6V11a7 7 0 00-5-6.7V3a2 2 0 10-4 0v1.3A7 7 0 005 11v5l-2 2v1h20v-1l-2-2z"/>
+    </symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M19.4 13a7.9 7.9 0 000-2l2-1.5-2-3.5-2.3.8a7.4 7.4 0 00-1.7-1L15 2h-6l-.4 2.8a7.4 7.4 0 00-1.7 1L4.6 5.9l-2 3.5L4.6 11a7.9 7.9 0 000 2l-2 1.5 2 3.5 2.3-.8a7.4 7.4 0 001.7 1L9 22h6l.4-2.8a7.4 7.4 0 001.7-1l2.3.8 2-3.5-2-1.5zM12 16a4 4 0 110-8 4 4 0 010 8z"/>
+    </symbol>
+</svg>
+
+<div class="app-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-mark">↗</div>
+            <div class="logo-text">TrendDash</div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('main.index') }}"
+               class="nav-item {% if title == 'Dashboard' %}nav-item-active{% endif %}">
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-home"></use></svg>
+                <span class="nav-label">Dashboard</span>
+            </a>
+
+            <a href="{{ url_for('main.planner') }}"
+               class="nav-item {% if title == 'Content Planner' %}nav-item-active{% endif %}">
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-calendar"></use></svg>
+                <span class="nav-label">Content Planner</span>
+            </a>
+
+            <a href="{{ url_for('main.trends') }}"
+               class="nav-item {% if title == 'Trends Explorer' %}nav-item-active{% endif %}">
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-spark"></use></svg>
+                <span class="nav-label">Trend Analysis</span>
+            </a>
+
+            <a href="{{ url_for('main.analytics') }}"
+               class="nav-item {% if title == 'Analytics' %}nav-item-active{% endif %}">
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-chart"></use></svg>
+                <span class="nav-label">Analytics</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- MAIN AREA -->
+    <div class="main-area">
+
+        <!-- TOPBAR -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <div class="search-wrapper" role="search">
+                    <svg class="search-icon" aria-hidden="true"><use href="#i-search"></use></svg>
+                    <input type="text" class="search-input" placeholder="Search…">
+                <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Navigation öffnen">
+  ☰
+</button>
+
+                </div>
+            </div>
+
+            
+            <div class="topbar-right">
+                <button class="icon-button" id="chatToggle" title="Team Chat" type="button" aria-label="Team Chat">
+                    <svg class="icon" aria-hidden="true"><use href="#i-chat"></use></svg>
+                </button>
+
+                <div class="notif-wrapper">
+                    <button class="icon-button" id="notifToggle" title="Notifications" type="button" aria-label="Notifications">
+                        <svg class="icon" aria-hidden="true"><use href="#i-bell"></use></svg>
+                    </button>
+                    <div class="notif-panel" id="notifPanel">
+                        <div class="notif-header">Notifications</div>
+                        <div class="notif-item">
+                            <div class="notif-title">Video „Pizza POV“ wurde gepostet</div>
+                            <div class="notif-meta">vor 12 Minuten · TikTok</div>
+                        </div>
+                        <div class="notif-item">
+                            <div class="notif-title">10k Views erreicht auf „Street Interview“</div>
+                            <div class="notif-meta">heute · Instagram Reels</div>
+                        </div>
+                        <div class="notif-footer">
+                            <button class="text-button" type="button">Alle anzeigen</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-wrapper">
+                    <button class="profile-button" id="profileToggle" type="button" aria-label="Profil">
+                        <span class="profile-name">{{ display_name or 'User' }}</span>
+                        <div class="profile-avatar">{{ (display_name or 'U')[:1]|upper }}</div>
+                    </button>
+                    <div class="profile-menu" id="profileMenu">
+                        <div class="profile-menu-header">
+                            Signed in as
+                            <div class="profile-menu-name">{{ display_name or 'User' }}</div>
+                        </div>
+                        <a href="{{ url_for('main.settings') }}" class="profile-menu-item profile-menu-item-link">
+                            <svg class="menu-icon" aria-hidden="true"><use href="#i-settings"></use></svg>
+                            Workspace Settings
+                        </a>
+                        <a href="{{ url_for('main.logout') }}" class="profile-menu-item profile-menu-item-link">Abmelden</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- CONTENT -->
+        <main class="content">
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- FOOTER (Impressum & Datenschutz) -->
+        <footer class="main-footer">
+            <a href="{{ url_for('main.impressum') }}">Impressum</a>
+            <span class="footer-sep">·</span>
+            <a href="{{ url_for('main.datenschutz') }}">Datenschutz</a>
+        </footer>
+
+        <!-- CHAT PANEL -->
+        <aside class="chat-panel" id="chatPanel">
+            <div class="chat-header">
+                <div class="chat-title">Team Chat</div>
+                <button class="icon-button" id="chatClose" type="button" aria-label="Close Chat">
+                    ✕
+                </button>
+            </div>
+            <div class="chat-body" id="chatBody">
+                <div class="chat-message chat-message-left">
+                    <div class="chat-bubble">Hey! Heute schon Trends gecheckt?</div>
+                    <div class="chat-badge">Max</div>
+                </div>
+                <div class="chat-message chat-message-left">
+                    <div class="chat-bubble">Planner ist ready – kannst du die Woche fixieren?</div>
+                    <div class="chat-badge">Thomas</div>
+                </div>
+            </div>
+            <form class="chat-form" id="chatForm">
+                <input class="chat-input" id="chatInput" type="text" placeholder="Nachricht schreiben …" autocomplete="off">
+                <button class="chat-send" type="submit">Send</button>
+            </form>
+        </aside>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Notif Panel
+        const notifToggle = document.getElementById('notifToggle');
+        const notifPanel = document.getElementById('notifPanel');
+        if (notifToggle && notifPanel) {
+            notifToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                notifPanel.classList.toggle('is-open');
+            });
+            document.addEventListener('click', (e) => {
+                if (!notifPanel.contains(e.target) && !notifToggle.contains(e.target)) {
+                    notifPanel.classList.remove('is-open');
+                }
+            });
+        }
+
+        // Chat
+        const chatToggle = document.getElementById('chatToggle');
+        const chatPanel = document.getElementById('chatPanel');
+        const chatClose = document.getElementById('chatClose');
+        if (chatToggle && chatPanel) {
+            chatToggle.addEventListener('click', () => chatPanel.classList.add('is-open'));
+            chatClose?.addEventListener('click', () => chatPanel.classList.remove('is-open'));
+        }
+
+        // Chat submit
+        const chatForm = document.getElementById('chatForm');
+        const chatInput = document.getElementById('chatInput');
+        const chatBody = document.getElementById('chatBody');
+        if (chatForm && chatInput && chatBody) {
+            chatForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const text = chatInput.value.trim();
+                if (!text) return;
+                const msg = document.createElement('div');
+                msg.className = 'chat-message chat-message-right';
+                msg.innerHTML = `
+                    <div class="chat-bubble">${text}</div>
+                    <div class="chat-badge">Andi</div>
+                `;
+                chatBody.appendChild(msg);
+                chatBody.scrollTop = chatBody.scrollHeight;
+                chatInput.value = "";
+            });
+        }
+
+        // Profile
+        const profileToggle = document.getElementById('profileToggle');
+        const profileMenu = document.getElementById('profileMenu');
+        if (profileToggle && profileMenu) {
+            profileToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                profileMenu.classList.toggle('is-open');
+            });
+            document.addEventListener('click', (e) => {
+                if (!profileMenu.contains(e.target) && !profileToggle.contains(e.target)) {
+                    profileMenu.classList.remove('is-open');
+                }
+            });
+        }
+    });
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const sidebar      = document.querySelector('.sidebar');
+  const toggleBtn    = document.getElementById('sidebar-toggle');
+  const backdrop     = document.getElementById('sidebar-backdrop');
+
+  if (!sidebar || !toggleBtn || !backdrop) return;
+
+  function openSidebar() {
+    sidebar.classList.remove('sidebar--hidden');
+    backdrop.classList.add('is-visible');
+  }
+  function closeSidebar() {
+    sidebar.classList.add('sidebar--hidden');
+    backdrop.classList.remove('is-visible');
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    if (sidebar.classList.contains('sidebar--hidden')) openSidebar();
+    else closeSidebar();
+  });
+
+  backdrop.addEventListener('click', closeSidebar);
+
+  // auf Tablet/Mobile initial versteckt
+  if (window.innerWidth <= 1024) sidebar.classList.add('sidebar--hidden');
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 1024) {
+      sidebar.classList.remove('sidebar--hidden');
+      backdrop.classList.remove('is-visible');
+    }
+  });
+});
+</script>
+
+
+</body>
+</html>

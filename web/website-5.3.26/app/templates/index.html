@@ -1,0 +1,399 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dash-page dash-page--v2">
+
+  <!-- Kopfbereich Dashboard -->
+  <div class="dash-page-header">
+    <div>
+      <h1 class="dash-page-title">Dashboard</h1>
+      <p class="dash-page-subtitle">
+        Operative Übersicht: Woche, Aufgaben, Ideen, Trends &amp; Performance.
+      </p>
+    </div>
+  </div>
+
+  {# AI-Ideen: Dummy-Daten, Vorlage für spätere KI/DB. To-Dos werden von dashboard-todos.js aus dem Wochenplan berechnet. #}
+  {% set ai_ideas = [
+    {
+      "id":"idea-1",
+      "title":"POV: First Bite (Signature Dish)",
+      "hook":"Der erste Biss entscheidet – zeig die Reaktion in 1 Sekunde.",
+      "trend":"POV",
+      "script":"0–1s: Close-up auf das Gericht.\\n1–3s: Erster Biss + Sound.\\n3–7s: Reaktion (Gast oder du).\\n7–10s: kurzer 'Warum das so gut ist' Satz.",
+      "notes":"Licht von vorne, Kamera sehr nah. Ton: Crunch/Steam. 2–3 Takes aufnehmen.",
+      "cta":"Kommentiere 'REZEPT', wenn du das Rezept willst."
+    },
+    {
+      "id":"idea-2",
+      "title":"Behind the Scenes: 30 Sekunden Küche",
+      "hook":"Niemand sieht den Stress – bis jetzt.",
+      "trend":"BTS",
+      "script":"0–2s: 'So fühlt sich Freitagabend an…' Text.\\n2–12s: schnelle Cuts: Teig, Ofen, Anrichten.\\n12–20s: Team-Moment.\\n20–30s: Final Shot am Pass.",
+      "notes":"Schnitte im Beat. 0.5x für 1–2 Shots. Keine langen Erklärungen.",
+      "cta":"Willst du mehr BTS? Dann 'MEHR' kommentieren."
+    },
+    {
+      "id":"idea-3",
+      "title":"Trend-Sound Remix: Pizza-Transformation",
+      "hook":"Wenn aus Teig 'wow' wird – im Takt.",
+      "trend":"Sound",
+      "script":"0–2s: Teigball.\\n2–6s: Toss/Stretch im Beat.\\n6–9s: Topping.\\n9–12s: Ofen rein.\\n12–15s: Cut → fertige Pizza.",
+      "notes":"Nutze einen aktuellen Sound (Trend-Seite). Schnitte auf Kick/Snare.",
+      "cta":"Speichern für später – und markier jemanden, der das lieben würde."
+    }
+  ] %}
+
+  <div class="dash-sections">
+
+    <!-- 1) BLOCK: Diese Woche (Full Width) -->
+    <section class="dash-card weekly-card dash-block dash-block--week" data-week-context="dashboard">
+      <div class="weekly-header">
+        <div>
+          <h2 class="section-title">Diese Woche</h2>
+          <p class="section-subtitle" data-week-label>
+            <!-- Wird von planner.js gesetzt -->
+          </p>
+        </div>
+        <div class="week-nav">
+          <button class="week-nav-btn" data-week-nav="prev" aria-label="Vorherige Woche">‹</button>
+          <button class="week-nav-btn" data-week-nav="next" aria-label="Nächste Woche">›</button>
+        </div>
+      </div>
+
+      <div class="weekly-grid" id="weekly-grid">
+        <!-- Wird von planner.js gerendert -->
+      </div>
+    </section>
+
+    <!-- 2) BLOCK: Zwei-Spalten-Bereich (gleich breit / gleich hoch) -->
+    <div class="dash-block dash-block--two-col">
+      <div class="dash-two-col">
+
+        <!-- 2A) To-Dos & Content-Gaps diese Woche (von dashboard-todos.js aus Wochenplan berechnet) -->
+        <section class="dash-card dash-card--equal dash-todos-card">
+          <div class="card-header">
+            <h3 class="section-title">To-Dos &amp; Content-Gaps</h3>
+            <p class="section-subtitle">
+              Automatisch für die nächsten 30 Tage. Klick öffnet Video im Edit-Modal oder Detail.
+            </p>
+          </div>
+
+          <div class="todo-list-wrapper" role="list" aria-label="To-Dos nächste 30 Tage">
+            <!-- Wird von dashboard-todos.js befüllt (Top 5) -->
+          </div>
+
+          <div class="todo-empty" hidden>
+            Keine offenen Aufgaben für die nächsten 30 Tage.
+          </div>
+
+          <button type="button" class="td-button todo-show-all-btn" id="todoShowAllBtn" hidden>
+            Alle Aufgaben anzeigen
+          </button>
+        </section>
+
+        <!-- 2B) AI-Videoideen -->
+        <section class="dash-card dash-card--equal dash-ai-card">
+          <div class="card-header">
+            <h3 class="section-title">AI-Videoideen</h3>
+            <p class="section-subtitle">
+              Dummy-Ideen – klickbar mit Detail-View (Vorlage für KI/DB).
+            </p>
+          </div>
+
+          <div class="ai-idea-list">
+            {% for idea in ai_ideas %}
+              <button
+                type="button"
+                class="ai-idea-item"
+                data-ai-open
+                data-ai-title="{{ idea.title }}"
+                data-ai-hook="{{ idea.hook }}"
+                data-ai-trend="{{ idea.trend }}"
+                data-ai-script="{{ idea.script }}"
+                data-ai-notes="{{ idea.notes }}"
+                data-ai-cta="{{ idea.cta }}"
+              >
+                <div class="ai-idea-top">
+                  <div class="ai-idea-title">{{ idea.title }}</div>
+                  <span class="ai-idea-tag">{{ idea.trend }}</span>
+                </div>
+                <div class="ai-idea-hook">{{ idea.hook }}</div>
+              </button>
+            {% endfor %}
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- 3) BLOCK: Trends (kompakt) -->
+    <section class="dash-card dash-block dash-trends-compact">
+      <div class="dash-row-header">
+        <div>
+          <h3 class="section-title">Top-Trends für dein Business</h3>
+          <p class="section-subtitle">Kompakte Vorschau (3–4 Trends) – Details auf der Trend-Seite.</p>
+        </div>
+        <a class="text-button dash-link" href="{{ url_for('main.trends') }}">Zur Trend-Analyse →</a>
+      </div>
+
+      <div class="dash-trends-mini">
+        <div class="dash-trend-mini">
+          <div class="dash-trend-title">{{ themas.Thema1 or "POV-Format" }}</div>
+          <div class="dash-trend-meta">Hype: {{ result.Trend_Score1 or "—" }} · Velocity: {{ result.Avg_Velocity1 or "—" }}</div>
+        </div>
+        <div class="dash-trend-mini">
+          <div class="dash-trend-title">{{ themas.Thema2 or "Behind the Scenes" }}</div>
+          <div class="dash-trend-meta">Hype: {{ result.Trend_Score2 or "—" }} · Velocity: {{ result.Avg_Velocity2 or "—" }}</div>
+        </div>
+        <div class="dash-trend-mini">
+          <div class="dash-trend-title">{{ themas.Thema3 or "Trend-Sound" }}</div>
+          <div class="dash-trend-meta">Hype: {{ result.Trend_Score3 or "—" }} · Velocity: {{ result.Avg_Velocity3 or "—" }}</div>
+        </div>
+        <div class="dash-trend-mini">
+          <div class="dash-trend-title">{{ themas.Thema4 or "Street Interviews" }}</div>
+          <div class="dash-trend-meta">Hype: {{ result.Trend_Score4 or "—" }} · Velocity: {{ result.Avg_Velocity4 or "—" }}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4) BLOCK: Performance-Daten (3 nebeneinander) -->
+    <div class="dash-block dash-block--kpis">
+      <div class="dash-kpi-grid">
+
+        <section class="dash-card metric-card metric-card--with-chart">
+          <div class="metric-card-header">
+            <div>
+              <h3 class="section-title">Follower · 28 Tage</h3>
+              <p class="section-subtitle">Kurzüberblick.</p>
+            </div>
+          </div>
+
+          <div class="metric-kpi-row">
+            <div class="kpi-value">4.320</div>
+            <div class="kpi-meta">+12&nbsp;%</div>
+          </div>
+
+          <div class="metric-chart">
+            <svg viewBox="0 0 100 40" class="line-chart" aria-hidden="true">
+              <line x1="0" y1="32" x2="100" y2="32" class="line-chart-grid" />
+              <line x1="0" y1="20" x2="100" y2="20" class="line-chart-grid" />
+              <polyline class="line-chart-line" points="0,30 16,28 32,26 48,22 64,18 80,16 100,14" />
+            </svg>
+          </div>
+        </section>
+
+        <section class="dash-card metric-card metric-card--with-chart">
+          <div class="metric-card-header">
+            <div>
+              <h3 class="section-title">Likes · 28 Tage</h3>
+              <p class="section-subtitle">Kurzüberblick.</p>
+            </div>
+          </div>
+
+          <div class="metric-kpi-row">
+            <div class="kpi-value">73.500</div>
+            <div class="kpi-meta">+8&nbsp;%</div>
+          </div>
+
+          <div class="metric-chart">
+            <svg viewBox="0 0 100 40" class="line-chart" aria-hidden="true">
+              <line x1="0" y1="32" x2="100" y2="32" class="line-chart-grid" />
+              <line x1="0" y1="20" x2="100" y2="20" class="line-chart-grid" />
+              <polyline class="line-chart-line line-chart-line--secondary" points="0,34 16,32 32,30 48,24 64,26 80,22 100,18" />
+            </svg>
+          </div>
+        </section>
+
+        <section class="dash-card metric-card">
+          <div class="metric-card-header">
+            <div>
+              <h3 class="section-title">Top Posts · 14 Tage</h3>
+              <p class="section-subtitle">Kurzliste (Dummy).</p>
+            </div>
+          </div>
+
+          <div class="dash-topposts-mini">
+            <div class="dash-toppost">
+              <div class="dash-toppost-title">Cozy Restaurant</div>
+              <div class="dash-toppost-meta">72k Views · 4,2k Likes</div>
+            </div>
+            <div class="dash-toppost">
+              <div class="dash-toppost-title">POV: First Bite</div>
+              <div class="dash-toppost-meta">54k Views · 3,1k Likes</div>
+            </div>
+            <div class="dash-toppost">
+              <div class="dash-toppost-title">Behind the Scenes</div>
+              <div class="dash-toppost-meta">39k Views · 2,4k Likes</div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% include '_post_edit_modal.html' %}
+
+<!-- Modal: To-Do Detail (Erklärung, Kontext, Handlung, Buttons) -->
+<div class="td-modal" id="todoDetailModal" aria-hidden="true">
+  <div class="td-modal-backdrop" data-todo-modal-close></div>
+  <div class="td-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="todoDetailTitle">
+    <div class="td-modal-header">
+      <div>
+        <div class="td-modal-title" id="todoDetailTitle" data-todo-modal-title">To-Do</div>
+      </div>
+      <button type="button" class="td-modal-close" data-todo-modal-close aria-label="Schließen">✕</button>
+    </div>
+    <div class="td-modal-body">
+      <div class="td-modal-block">
+        <div class="td-modal-label">Erklärung</div>
+        <div class="td-modal-text" data-todo-modal-explanation>—</div>
+      </div>
+      <div class="td-modal-block">
+        <div class="td-modal-label">Kontext</div>
+        <div class="td-modal-text" data-todo-modal-context>—</div>
+      </div>
+      <div class="td-modal-block">
+        <div class="td-modal-label">Handlungsschritt</div>
+        <div class="td-modal-text" data-todo-modal-action>—</div>
+      </div>
+    </div>
+    <div class="td-modal-footer" data-todo-modal-buttons>
+      <!-- Buttons werden von dashboard-todos.js gesetzt (Zu AI-Videoideen, Zum Video) -->
+    </div>
+  </div>
+</div>
+
+<!-- Overlay: Alle To-Dos (nächste 30 Tage) -->
+<div class="td-modal todo-all-overlay" id="todoAllOverlay" aria-hidden="true">
+  <div class="td-modal-backdrop" data-todo-overlay-close></div>
+  <div class="td-modal-dialog todo-overlay-dialog" role="dialog" aria-labelledby="todoAllOverlayTitle">
+    <div class="td-modal-header">
+      <h2 class="td-modal-title" id="todoAllOverlayTitle">Alle Aufgaben (nächste 30 Tage)</h2>
+      <button type="button" class="td-modal-close" data-todo-overlay-close aria-label="Schließen">✕</button>
+    </div>
+    <div class="todo-overlay-content">
+      <div class="todo-overlay-head">
+        <span class="todo-overlay-head-date">Datum</span>
+        <span class="todo-overlay-head-task">Aufgabe</span>
+        <span class="todo-overlay-head-deadline">Deadline</span>
+        <span class="todo-overlay-head-action"></span>
+      </div>
+      <div class="todo-overlay-list" id="todoAllOverlayList">
+        <!-- Wird von dashboard-todos.js befüllt -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: AI-Idee Detail (minimal, kein Over-Engineering) -->
+<div class="td-modal" id="aiIdeaModal" aria-hidden="true">
+  <div class="td-modal-backdrop" data-ai-close></div>
+  <div class="td-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="aiIdeaTitle">
+    <div class="td-modal-header">
+      <div>
+        <div class="td-modal-title" id="aiIdeaTitle">AI-Idee</div>
+        <div class="td-modal-sub" id="aiIdeaTrend">Trend</div>
+      </div>
+      <button type="button" class="td-modal-close" data-ai-close aria-label="Schließen">✕</button>
+    </div>
+
+    <div class="td-modal-body">
+      <div class="td-modal-block">
+        <div class="td-modal-label">Hook</div>
+        <div class="td-modal-text" id="aiIdeaHook">—</div>
+      </div>
+
+      <div class="td-modal-block">
+        <div class="td-modal-label">Kurzskript</div>
+        <pre class="td-modal-pre" id="aiIdeaScript">—</pre>
+      </div>
+
+      <div class="td-modal-block">
+        <div class="td-modal-label">Dreh-Hinweise</div>
+        <div class="td-modal-text" id="aiIdeaNotes">—</div>
+      </div>
+
+      <div class="td-modal-block">
+        <div class="td-modal-label">CTA</div>
+        <div class="td-modal-text" id="aiIdeaCta">—</div>
+      </div>
+    </div>
+
+    <div class="td-modal-footer">
+      <button type="button" class="td-button td-button--primary" id="aiTakeToPlanner">
+        In Content-Plan übernehmen
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Shared Planner Script (To-Do-Engine + Post-Modal brauchen TrendDashPlanner) -->
+<script src="{{ url_for('static', filename='js/planner.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard-todos.js') }}"></script>
+<script src="{{ url_for('static', filename='js/post-edit-modal.js') }}"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // AI-Ideen-Modal (Dummy, Vorlage für spätere Logik)
+    const modal = document.getElementById('aiIdeaModal');
+    if (!modal) return;
+
+    const titleEl  = document.getElementById('aiIdeaTitle');
+    const trendEl  = document.getElementById('aiIdeaTrend');
+    const hookEl   = document.getElementById('aiIdeaHook');
+    const scriptEl = document.getElementById('aiIdeaScript');
+    const notesEl  = document.getElementById('aiIdeaNotes');
+    const ctaEl    = document.getElementById('aiIdeaCta');
+    const takeBtn  = document.getElementById('aiTakeToPlanner');
+
+    function openModal(payload) {
+      titleEl.textContent  = payload.title || 'AI-Idee';
+      trendEl.textContent  = payload.trend ? `Trend: ${payload.trend}` : '';
+      hookEl.textContent   = payload.hook || '—';
+      scriptEl.textContent = payload.script || '—';
+      notesEl.textContent  = payload.notes || '—';
+      ctaEl.textContent    = payload.cta || '—';
+
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      takeBtn?.focus();
+    }
+
+    function closeModal() {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+
+    document.querySelectorAll('[data-ai-open]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        openModal({
+          title: btn.getAttribute('data-ai-title'),
+          hook: btn.getAttribute('data-ai-hook'),
+          trend: btn.getAttribute('data-ai-trend'),
+          script: btn.getAttribute('data-ai-script'),
+          notes: btn.getAttribute('data-ai-notes'),
+          cta: btn.getAttribute('data-ai-cta')
+        });
+      });
+    });
+
+    modal.querySelectorAll('[data-ai-close]').forEach((el) => el.addEventListener('click', closeModal));
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+    });
+
+    takeBtn?.addEventListener('click', () => {
+      // Dummy: später wird hier ein Eintrag in den Planner übernommen (DB/Route).
+      alert('Dummy: Idee wurde in den Content-Plan übernommen.');
+      closeModal();
+    });
+  });
+</script>
+{% endblock %}
