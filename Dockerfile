@@ -19,7 +19,8 @@ COPY requirements.txt .
 
 # 5. Alle Libraries installieren
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install torch --index-url https://download.pytorch.org/whl/cpu#  (Falls du PyTorch mit CPU-Unterstützung benötigst, ansonsten kannst du diesen Schritt anpassen)
     
 # 6. Das GESAMTE Projekt kopieren
 # Kopiert web/, scraper/, ki_logic/ und alle anderen Ordner.
