@@ -10,7 +10,7 @@ from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # Alle DBs im Projektordner (funktioniert auf Mac und Windows)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.getenv('DATA_PATH', '/app/database')
 LOGS_DB = os.path.join(BASE_DIR, "logs.db")
 ERROR_DB = os.path.join(BASE_DIR, "error.db")
 USERS_DB = os.path.join(BASE_DIR, "users.db")
