@@ -1,44 +1,45 @@
 version: '3.8'
 
 services:
-  # 1. Die Flask Web-App (Liest die Trends aus)
+  # 1. Die Flask Web-App
   web-app:
     build: .
     image: ghcr.io/louner420/ki_projekt:latest
     container_name: flask_web
     ports:
-      - "8080:5000"
+      - "8080:5002"  # Mappt Port 8080 (außen) auf 5002 (deine run.py)
     volumes:
-      - sqlite_data:/app/database  # Gemeinsamer Ordner
+      - sqlite_data:/app/database
     environment:
-      - DB_PATH=/app/database/trend_result.db
-      - LOG_DB_PATH=/app/database/logs.db      # Pfad für Logs
-      - ERROR_DB_PATH=/app/database/error.db    # Pfad für Fehler
+      - DATA_PATH=/app/database           # Basis-Pfad für routes.py
+      - FLASK_DEBUG=1                     # Aktiviert den Debug-Modus
     restart: always
 
-  # 2. Der Scraper (Schreibt neue Trends rein)
+  # 2. Der Scraper
   scraper:
+    build: . # Nutzt dasselbe Dockerfile
     image: ghcr.io/louner420/ki_projekt:latest
     container_name: ki_scraper
     command: python ai/daemon_scraper.py
     volumes:
-      - sqlite_data:/app/database  # Derselbe gemeinsame Ordner
+      - sqlite_data:/app/database
     environment:
-      - DB_PATH=/app/database/trend_result.db
-      - DB_PATH_RAW=/app/database/tiktok_raw.db  # Pfad für Rohdaten
+      - DATA_PATH=/app/database
     restart: on-failure
 
-  # 3. Der KI-Processor (Analysiert die Trends)
+  # 3. Der KI-Processor
   ki-processor:
+    build: .
     image: ghcr.io/louner420/ki_projekt:latest
     container_name: ki_logic
     command: python ai/main.py
     volumes:
-      - sqlite_data:/app/database  # Und noch einmal derselbe Ordner
+      - sqlite_data:/app/database
     environment:
-      - DB_PATH=/app/database/trend_result.db
+      - DATA_PATH=/app/database
     restart: always
 
 volumes:
-  # Dieses Volume ist die "Brücke" zwischen den 3 Containern
+  # Das Volume sorgt dafür, dass logs.db, users.db und trend_results.db 
+  # dauerhaft gespeichert werden und alle Container darauf zugreifen.
   sqlite_data:

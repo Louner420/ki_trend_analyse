@@ -2,7 +2,7 @@ from app import create_app
 import sqlite3
 
 def init_log_db():
-    conn = sqlite3.connect("logs.db")
+    conn = sqlite3.connect('/app/database/logs.db')
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS request_logs (
