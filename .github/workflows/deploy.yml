@@ -19,8 +19,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: Louner420
-          password: secrets.GITHUB_TOKEN
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Image bauen und hochladen
         uses: docker/build-push-action@v5
