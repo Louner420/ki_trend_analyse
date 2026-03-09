@@ -4,7 +4,7 @@ services:
   # 1. Die Flask Web-App
   web-app:
     build: .
-    image: ghcr.io/louner420/ki_projekt:latest
+    image: ghcr.io/louner420/ki_trend_analyse:latest
     container_name: flask_web
     ports:
       - "8080:5002"  # Mappt Port 8080 (außen) auf 5002 (deine run.py)
@@ -18,7 +18,7 @@ services:
   # 2. Der Scraper
   scraper:
     build: . # Nutzt dasselbe Dockerfile
-    image: ghcr.io/louner420/ki_projekt:latest
+    image: ghcr.io/louner420/ki_trend_analyse:latest
     container_name: ki_scraper
     command: python ai/daemon_scraper.py
     volumes:
@@ -30,7 +30,7 @@ services:
   # 3. Der KI-Processor
   ki-processor:
     build: .
-    image: ghcr.io/louner420/ki_projekt:latest
+    image: ghcr.io/louner420/ki_trend_analyse:latest
     container_name: ki_logic
     command: python ai/main.py
     volumes:

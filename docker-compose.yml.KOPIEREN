@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  web-app:
+    build: .             # Erstellt das Image aus deinem lokalen Dockerfile
+    container_name: flask_web
+    ports:
+      - "8080:5002"      # Port 5002 wie in deiner run.py
+    volumes:
+      - sqlite_data:/app/database
+    environment:
+      - DATA_PATH=/app/database
+    restart: always
+
+  scraper:
+    build: .             # Nutzt dasselbe lokale Image
+    container_name: ki_scraper
+    command: python ai/daemon_scraper.py
+    volumes:
+      - sqlite_data:/app/database
+    environment:
+      - DATA_PATH=/app/database
+    restart: on-failure
+
+  ki-processor:
+    build: .
+    container_name: ki_logic
+    command: python ai/main.py
+    volumes:
+      - sqlite_data:/app/database
+    environment:
+      - DATA_PATH=/app/database
+    restart: always
+
+volumes:
+  sqlite_data:
