@@ -1,0 +1,815 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ai_ideas.css') }}?v=2">
+<div class="dash-page dash-page--v2">
+
+  <!-- Kopfbereich Dashboard -->
+  <div class="dash-page-header">
+    <div>
+      <h1 class="dash-page-title">Dashboard</h1>
+      <p class="dash-page-subtitle">
+        Operative Übersicht: Woche, Aufgaben, Ideen, Trends &amp; Performance.
+      </p>
+    </div>
+  </div>
+
+  {# AI-Ideen: Dummy-Daten, Vorlage für spätere KI/DB. To-Dos werden von dashboard-todos.js aus dem Wochenplan berechnet. #}
+  {% set ai_ideas = [
+    {
+      "id":"idea-1",
+      "title":"POV: First Bite (Signature Dish)",
+      "hook":"Der erste Biss entscheidet – zeig die Reaktion in 1 Sekunde.",
+      "trend":"POV",
+      "videoType":"visual",
+      "script":"0–1s: Close-up auf das Gericht.\\n1–3s: Erster Biss + Sound.\\n3–7s: Reaktion (Gast oder du).\\n7–10s: kurzer 'Warum das so gut ist' Satz.",
+      "notes":"Licht von vorne, Kamera sehr nah. Ton: Crunch/Steam. 2–3 Takes aufnehmen.",
+      "cta":"Kommentiere 'REZEPT', wenn du das Rezept willst."
+    },
+    {
+      "id":"idea-2",
+      "title":"Behind the Scenes: 30 Sekunden Küche",
+      "hook":"Niemand sieht den Stress – bis jetzt.",
+      "trend":"BTS",
+      "videoType":"visual",
+      "script":"0–2s: 'So fühlt sich Freitagabend an…' Text.\\n2–12s: schnelle Cuts: Teig, Ofen, Anrichten.\\n12–20s: Team-Moment.\\n20–30s: Final Shot am Pass.",
+      "notes":"Schnitte im Beat. 0.5x für 1–2 Shots. Keine langen Erklärungen.",
+      "cta":"Willst du mehr BTS? Dann 'MEHR' kommentieren."
+    },
+    {
+      "id":"idea-3",
+      "title":"Trend-Sound Remix: Pizza-Transformation",
+      "hook":"Wenn aus Teig 'wow' wird – im Takt.",
+      "trend":"Sound",
+      "videoType":"visual",
+      "script":"0–2s: Teigball.\\n2–6s: Toss/Stretch im Beat.\\n6–9s: Topping.\\n9–12s: Ofen rein.\\n12–15s: Cut → fertige Pizza.",
+      "notes":"Nutze einen aktuellen Sound (Trend-Seite). Schnitte auf Kick/Snare.",
+      "cta":"Speichern für später – und markier jemanden, der das lieben würde."
+    },
+    {
+      "id":"idea-4",
+      "title":"Warum unser Signature Dish immer ausverkauft ist",
+      "hook":"Viele Gäste fragen uns immer wieder warum genau dieses Gericht bei uns jeden Abend ausverkauft ist.",
+      "trend":"Talking / Story",
+      "videoType":"talking",
+      "script":"Erkläre kurz, was dieses Gericht besonders macht.\\n\\nZeige das Gericht während du sprichst und erzähle, warum Gäste es immer wieder bestellen.\\n\\nZum Schluss kannst du sagen:\\n\"Wenn du es noch nicht probiert hast, musst du es unbedingt testen.\"",
+      "notes":"Talking Head oder leichtes B-Roll vom Gericht. Authentische Erzählung.",
+      "cta":"Kommentiere \"SIGNATURE\" wenn du wissen willst, wie wir es zubereiten."
+    }
+  ] %}
+
+  <div class="dash-sections">
+
+    <!-- 1) BLOCK: Diese Woche (Full Width) -->
+    <section class="dash-card weekly-card dash-block dash-block--week" data-week-context="dashboard">
+      <div class="weekly-header">
+        <div>
+          <h2 class="section-title">Diese Woche</h2>
+          <p class="section-subtitle" data-week-label>
+            <!-- Wird von planner.js gesetzt -->
+          </p>
+        </div>
+        <div class="week-nav">
+          <button class="week-nav-btn" data-week-nav="prev" aria-label="Vorherige Woche">‹</button>
+          <button class="week-nav-btn" data-week-nav="next" aria-label="Nächste Woche">›</button>
+        </div>
+      </div>
+
+      <div class="weekly-grid" id="weekly-grid">
+        <!-- Wird von planner.js gerendert -->
+      </div>
+    </section>
+
+    <!-- 2) BLOCK: Zwei-Spalten-Bereich (gleich breit / gleich hoch) -->
+    <div class="dash-block dash-block--two-col">
+      <div class="dash-two-col">
+
+        <!-- 2A) To-Dos & Content-Gaps diese Woche (von dashboard-todos.js aus Wochenplan berechnet) -->
+        <section class="dash-card dash-card--equal dash-todos-card" id="todos">
+          <div class="card-header">
+            <h3 class="section-title">To-Dos &amp; Content-Gaps</h3>
+            <p class="section-subtitle">
+              Automatisch für die nächsten 30 Tage. Klick öffnet Video im Edit-Modal oder Detail.
+            </p>
+          </div>
+
+          <div class="todo-list-wrapper" role="list" aria-label="To-Dos nächste 30 Tage">
+            <!-- Wird von dashboard-todos.js befüllt (Top 5) -->
+          </div>
+
+          <div class="todo-empty todo-empty-state" id="todoEmptyState" hidden>
+            <span class="todo-empty-icon" aria-hidden="true">✅</span>
+            <strong class="todo-empty-title">Alles erledigt</strong>
+            <p class="todo-empty-desc">Für die nächsten 30 Tage gibt es aktuell keine offenen Aufgaben.</p>
+          </div>
+
+          <button type="button" class="td-button todo-show-all-btn" id="todoShowAllBtn" hidden aria-label="Alle Aufgaben anzeigen">
+            Alle Aufgaben anzeigen
+          </button>
+        </section>
+
+        <!-- 2B) AI-Videoideen – Block-Struktur mit Hook, Skript, Drehhinweise, CTA -->
+        <section class="dash-card dash-card--equal dash-ai-card ai-ideas-section">
+          <div class="card-header">
+            <h3 class="section-title">AI-Videoideen</h3>
+            <p class="section-subtitle">
+              Klick öffnet Detail mit Hook, Dreh-Skript, Drehhinweisen und CTA.
+            </p>
+          </div>
+
+          <div class="ai-idea-list">
+            {% for idea in ai_ideas %}
+              <button
+                type="button"
+                class="ai-idea-block"
+                data-ai-open
+                data-ai-id="{{ idea.id }}"
+                data-ai-title="{{ idea.title }}"
+                data-ai-hook="{{ idea.hook }}"
+                data-ai-trend="{{ idea.trend }}"
+                data-ai-video-type="{{ idea.videoType | default('visual') }}"
+                data-ai-script="{{ idea.script }}"
+                data-ai-notes="{{ idea.notes }}"
+                data-ai-cta="{{ idea.cta }}"
+              >
+                <div class="ai-idea-block-header">
+                  <h4 class="ai-idea-block-title">{{ idea.title }}</h4>
+                  <span class="ai-idea-block-tag">{{ idea.trend }}</span>
+                </div>
+                <p class="ai-idea-block-preview">{{ idea.hook }}</p>
+              </button>
+            {% endfor %}
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- 3) BLOCK: Trends (kompakt) -->
+    <section class="dash-card dash-block dash-trends-compact">
+      <div class="dash-row-header">
+        <div>
+          <h3 class="section-title">Top-Trends für dein Business</h3>
+          <p class="section-subtitle">Kompakte Vorschau (3–4 Trends) – Details auf der Trend-Seite.</p>
+        </div>
+        <a class="text-button dash-link" href="{{ url_for('main.trends') }}">Zur Trend-Analyse →</a>
+      </div>
+
+      <div class="dash-trends-mini">
+        <div class="dash-trend-mini">
+          <div class="dash-trend-title">{{ themas.Thema1 or "POV-Format" }}</div>
+          <div class="dash-trend-meta">Hype: {{ result.Trend_Score1 or "—" }} · Velocity: {{ result.Avg_Velocity1 or "—" }}</div>
+        </div>
+        <div class="dash-trend-mini">
+          <div class="dash-trend-title">{{ themas.Thema2 or "Behind the Scenes" }}</div>
+          <div class="dash-trend-meta">Hype: {{ result.Trend_Score2 or "—" }} · Velocity: {{ result.Avg_Velocity2 or "—" }}</div>
+        </div>
+        <div class="dash-trend-mini">
+          <div class="dash-trend-title">{{ themas.Thema3 or "Trend-Sound" }}</div>
+          <div class="dash-trend-meta">Hype: {{ result.Trend_Score3 or "—" }} · Velocity: {{ result.Avg_Velocity3 or "—" }}</div>
+        </div>
+        <div class="dash-trend-mini">
+          <div class="dash-trend-title">{{ themas.Thema4 or "Street Interviews" }}</div>
+          <div class="dash-trend-meta">Hype: {{ result.Trend_Score4 or "—" }} · Velocity: {{ result.Avg_Velocity4 or "—" }}</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4) BLOCK: Performance-Daten (3 nebeneinander) -->
+    <div class="dash-block dash-block--kpis">
+      <div class="dash-kpi-grid">
+
+        <section class="dash-card metric-card metric-card--with-chart">
+          <div class="metric-card-header">
+            <div>
+              <h3 class="section-title">Follower · 28 Tage</h3>
+              <p class="section-subtitle">Kurzüberblick.</p>
+            </div>
+          </div>
+
+          <div class="metric-kpi-row">
+            <div class="kpi-value">4.320</div>
+            <div class="kpi-meta">+12&nbsp;%</div>
+          </div>
+
+          <div class="metric-chart">
+            <svg viewBox="0 0 100 40" class="line-chart" aria-hidden="true">
+              <line x1="0" y1="32" x2="100" y2="32" class="line-chart-grid" />
+              <line x1="0" y1="20" x2="100" y2="20" class="line-chart-grid" />
+              <polyline class="line-chart-line" points="0,30 16,28 32,26 48,22 64,18 80,16 100,14" />
+            </svg>
+          </div>
+        </section>
+
+        <section class="dash-card metric-card metric-card--with-chart">
+          <div class="metric-card-header">
+            <div>
+              <h3 class="section-title">Likes · 28 Tage</h3>
+              <p class="section-subtitle">Kurzüberblick.</p>
+            </div>
+          </div>
+
+          <div class="metric-kpi-row">
+            <div class="kpi-value">73.500</div>
+            <div class="kpi-meta">+8&nbsp;%</div>
+          </div>
+
+          <div class="metric-chart">
+            <svg viewBox="0 0 100 40" class="line-chart" aria-hidden="true">
+              <line x1="0" y1="32" x2="100" y2="32" class="line-chart-grid" />
+              <line x1="0" y1="20" x2="100" y2="20" class="line-chart-grid" />
+              <polyline class="line-chart-line line-chart-line--secondary" points="0,34 16,32 32,30 48,24 64,26 80,22 100,18" />
+            </svg>
+          </div>
+        </section>
+
+        <section class="dash-card metric-card">
+          <div class="metric-card-header">
+            <div>
+              <h3 class="section-title">Top Posts · 14 Tage</h3>
+              <p class="section-subtitle">Kurzliste (Dummy).</p>
+            </div>
+          </div>
+
+          <div class="dash-topposts-mini">
+            <div class="dash-toppost">
+              <div class="dash-toppost-title">Cozy Restaurant</div>
+              <div class="dash-toppost-meta">72k Views · 4,2k Likes</div>
+            </div>
+            <div class="dash-toppost">
+              <div class="dash-toppost-title">POV: First Bite</div>
+              <div class="dash-toppost-meta">54k Views · 3,1k Likes</div>
+            </div>
+            <div class="dash-toppost">
+              <div class="dash-toppost-title">Behind the Scenes</div>
+              <div class="dash-toppost-meta">39k Views · 2,4k Likes</div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% include '_post_edit_modal.html' %}
+
+<!-- Modal: To-Do Detail (Erklärung, Kontext, Handlung, Buttons) -->
+<div class="td-modal" id="todoDetailModal" aria-hidden="true">
+  <div class="td-modal-backdrop" data-todo-modal-close></div>
+  <div class="td-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="todoDetailTitle">
+    <div class="td-modal-header">
+      <div>
+        <div class="td-modal-title" id="todoDetailTitle" data-todo-modal-title">To-Do</div>
+      </div>
+      <button type="button" class="td-modal-close" data-todo-modal-close aria-label="Schließen">✕</button>
+    </div>
+    <div class="td-modal-body">
+      <div class="td-modal-block">
+        <div class="td-modal-label">Erklärung</div>
+        <div class="td-modal-text" data-todo-modal-explanation>—</div>
+      </div>
+      <div class="td-modal-block">
+        <div class="td-modal-label">Kontext</div>
+        <div class="td-modal-text" data-todo-modal-context>—</div>
+      </div>
+      <div class="td-modal-block">
+        <div class="td-modal-label">Handlungsschritt</div>
+        <div class="td-modal-text" data-todo-modal-action>—</div>
+      </div>
+    </div>
+    <div class="td-modal-footer" data-todo-modal-buttons>
+      <!-- Buttons werden von dashboard-todos.js gesetzt (Zu AI-Videoideen, Zum Video) -->
+    </div>
+  </div>
+</div>
+
+<!-- Overlay: Alle To-Dos (nächste 30 Tage) -->
+<div class="td-modal todo-all-overlay" id="todoAllOverlay" aria-hidden="true">
+  <div class="td-modal-backdrop" data-todo-overlay-close></div>
+  <div class="td-modal-dialog todo-overlay-dialog" role="dialog" aria-labelledby="todoAllOverlayTitle">
+    <div class="td-modal-header">
+      <h2 class="td-modal-title" id="todoAllOverlayTitle">Alle Aufgaben (nächste 30 Tage)</h2>
+      <button type="button" class="td-modal-close" data-todo-overlay-close aria-label="Schließen">✕</button>
+    </div>
+    <div class="todo-overlay-content">
+      <div class="todo-overlay-head">
+        <span class="todo-overlay-head-date">Datum</span>
+        <span class="todo-overlay-head-task">Aufgabe</span>
+        <span class="todo-overlay-head-deadline">Deadline</span>
+        <span class="todo-overlay-head-action"></span>
+      </div>
+      <div class="todo-overlay-list" id="todoAllOverlayList">
+        <!-- Wird von dashboard-todos.js befüllt -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: AI-Idee Detail – Block-Struktur (Hook, Dreh-Skript, Drehhinweise, CTA) -->
+<div class="td-modal" id="aiIdeaModal" aria-hidden="true">
+  <div class="td-modal-backdrop" data-ai-close></div>
+  <div class="td-modal-dialog td-modal-dialog--ai" role="dialog" aria-modal="true" aria-labelledby="aiIdeaTitle">
+    <div class="td-modal-header">
+      <div>
+        <h2 class="td-modal-title" id="aiIdeaTitle">AI-Idee</h2>
+        <div class="td-modal-sub" id="aiIdeaTrend">Trend</div>
+      </div>
+      <button type="button" class="td-modal-close" data-ai-close aria-label="Schließen">✕</button>
+    </div>
+
+    <div class="td-modal-body td-modal-body--ai">
+      <div class="ai-modal-section">
+        <h3 class="ai-modal-section-title"><span aria-hidden="true">💡</span> Hook</h3>
+        <div class="ai-modal-section-content" id="aiIdeaHook">—</div>
+      </div>
+      <div class="ai-modal-section ai-modal-section--script">
+        <h3 class="ai-modal-section-title"><span aria-hidden="true" id="aiIdeaScriptIcon">🎬</span><span id="aiIdeaScriptLabel">Dreh-Leitfaden</span></h3>
+        <div class="ai-modal-script-wrap">
+          <div class="ai-modal-script-body" id="aiIdeaScriptBody" role="textbox" aria-readonly="true">—</div>
+          <button type="button" class="ai-modal-script-more-btn" id="aiIdeaScriptMoreBtn" hidden>Mehr anzeigen</button>
+        </div>
+      </div>
+      <div class="ai-modal-section">
+        <h3 class="ai-modal-section-title"><span aria-hidden="true">🎬</span> Drehhinweise</h3>
+        <div class="ai-modal-section-content" id="aiIdeaNotes">—</div>
+      </div>
+      <div class="ai-modal-section">
+        <h3 class="ai-modal-section-title"><span aria-hidden="true">📢</span> CTA</h3>
+        <div class="ai-modal-section-content" id="aiIdeaCta">—</div>
+      </div>
+    </div>
+
+    <div class="td-modal-footer td-modal-footer--ai">
+      <button type="button" class="ai-revise-idea-btn" id="aiReviseIdeaBtn">
+        ✨ Idee überarbeiten
+      </button>
+      <button type="button" class="td-button td-button--primary ai-take-to-planner-btn" id="aiTakeToPlanner">
+        In Content-Plan übernehmen
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: AI Idee überarbeiten – Chat-Interface (nur UI, Backend später) -->
+<div class="td-modal" id="aiReviseModal" aria-hidden="true">
+  <div class="td-modal-backdrop" data-ai-revise-close></div>
+  <div class="td-modal-dialog td-modal-dialog--revise" role="dialog" aria-modal="true" aria-labelledby="aiReviseModalTitle">
+    <div class="td-modal-header">
+      <div>
+        <h2 class="td-modal-title" id="aiReviseModalTitle">AI Idee überarbeiten</h2>
+        <p class="td-modal-sub ai-revise-sub">Beschreibe kurz, was an der Idee geändert werden soll.</p>
+      </div>
+      <button type="button" class="td-modal-close" data-ai-revise-close aria-label="Schließen">✕</button>
+    </div>
+    <div class="td-modal-body td-modal-body--revise">
+      <div class="ai-revise-chat-body">
+        <div class="ai-revise-chat-messages" id="aiReviseChatMessages">
+          <div class="chat-msg chat-msg--system" aria-live="polite">
+            <p><strong>Wie möchtest du die Idee anpassen?</strong></p>
+            <p>Du kannst z.B. sagen:</p>
+            <ul>
+              <li>mehr Story</li>
+              <li>kürzeres Video</li>
+              <li>humorvoller Hook</li>
+              <li>Fokus auf Produkt</li>
+              <li>anderes Format</li>
+            </ul>
+          </div>
+          <div class="ai-revise-chat-dynamic" id="aiReviseChatDynamic"></div>
+        </div>
+      </div>
+      <div class="ai-revise-chat-input-wrap">
+        <textarea id="aiReviseInput" class="ai-revise-input" rows="2" placeholder="Beschreibe kurz, was du ändern möchtest…"></textarea>
+        <button type="button" class="td-button td-button--primary ai-revise-submit-btn" id="aiReviseSubmit">Überarbeiten</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Vollständiger Dreh-Leitfaden / Video-Skript Text -->
+<div class="td-modal" id="aiScriptDetailModal" aria-hidden="true">
+  <div class="td-modal-backdrop" data-ai-script-detail-close></div>
+  <div class="td-modal-dialog td-modal-dialog--script-detail" role="dialog" aria-modal="true" aria-labelledby="aiScriptDetailTitle">
+    <div class="td-modal-header">
+      <h2 class="td-modal-title" id="aiScriptDetailTitle">Dreh-Leitfaden</h2>
+      <button type="button" class="td-modal-close" data-ai-script-detail-close aria-label="Schließen">✕</button>
+    </div>
+    <div class="td-modal-body td-modal-body--script-detail">
+      <div class="ai-script-detail-content" id="aiScriptDetailContent">—</div>
+    </div>
+    <div class="td-modal-footer">
+      <button type="button" class="td-button td-button--secondary" data-ai-script-detail-close>Schließen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Video einplanen (Content-Plan) – Datum, Zeit, Status, Titel, Beschreibung -->
+<div class="td-modal" id="aiPlanModal" aria-hidden="true">
+  <div class="td-modal-backdrop" data-ai-plan-close></div>
+  <div class="td-modal-dialog td-modal-dialog--plan" role="dialog" aria-modal="true" aria-labelledby="aiPlanModalTitle">
+    <div class="td-modal-header">
+      <h2 class="td-modal-title" id="aiPlanModalTitle">Video einplanen</h2>
+      <button type="button" class="td-modal-close" data-ai-plan-close aria-label="Schließen">✕</button>
+    </div>
+    <div class="td-modal-body td-modal-form">
+      <div class="td-modal-block">
+        <label class="td-modal-label" for="aiPlanDate">Datum auswählen</label>
+        <input type="date" id="aiPlanDate" class="td-modal-input" required aria-required="true">
+      </div>
+      <div class="td-modal-block">
+        <label class="td-modal-label" for="aiPlanTime">Uhrzeit auswählen</label>
+        <input type="time" id="aiPlanTime" class="td-modal-input" value="12:00" required aria-required="true">
+      </div>
+      <div class="td-modal-block">
+        <label class="td-modal-label" for="aiPlanStatus">Status</label>
+        <select id="aiPlanStatus" class="td-modal-select">
+          <option value="idea">Idee</option>
+          <option value="ready" selected>Geplant</option>
+          <option value="filming">Gefilmt</option>
+          <option value="editing">Bearbeitung</option>
+          <option value="posted">Veröffentlicht</option>
+        </select>
+      </div>
+      <div class="td-modal-block">
+        <label class="td-modal-label" for="aiPlanTitle">Video Titel</label>
+        <input type="text" id="aiPlanTitle" class="td-modal-input" placeholder="Titel der AI-Videoidee">
+      </div>
+      <div class="td-modal-block">
+        <label class="td-modal-label" for="aiPlanDescription">Beschreibung</label>
+        <textarea id="aiPlanDescription" class="td-modal-textarea" rows="5" placeholder="Dreh-Skript …"></textarea>
+      </div>
+    </div>
+    <div class="td-modal-footer">
+      <button type="button" class="td-button td-button--secondary" data-ai-plan-close>Abbrechen</button>
+      <button type="button" class="td-button td-button--primary" id="aiPlanSubmit">Video einplanen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shared Planner Script (To-Do-Engine + Post-Modal brauchen TrendDashPlanner) -->
+<script src="{{ url_for('static', filename='js/planner.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard-todos.js') }}"></script>
+<script src="{{ url_for('static', filename='js/post-edit-modal.js') }}"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // AI-Ideen-Modal – Block-Struktur mit Hook, Dreh-Skript, Drehhinweise, CTA
+    const modal = document.getElementById('aiIdeaModal');
+    const planModal = document.getElementById('aiPlanModal');
+    if (!modal) return;
+
+    const titleEl      = document.getElementById('aiIdeaTitle');
+    const trendEl      = document.getElementById('aiIdeaTrend');
+    const hookEl       = document.getElementById('aiIdeaHook');
+    const scriptBody   = document.getElementById('aiIdeaScriptBody');
+    const notesEl      = document.getElementById('aiIdeaNotes');
+    const ctaEl        = document.getElementById('aiIdeaCta');
+    const takeBtn      = document.getElementById('aiTakeToPlanner');
+
+    // Aktuelle Idee für Planungs-Modal (Titel, Dreh-Skript etc.)
+    let currentAiPayload = null;
+
+    function getScriptText(script) {
+      return (script || '').replace(/\\n/g, '\n').trim() || '—';
+    }
+
+    /** Dreh-Leitfaden: Sekundenangaben (z. B. "0–1s: ") für Anzeige entfernen – nur visueller Leitfaden. */
+    function formatDrehLeitfaden(text) {
+      if (!text || !text.trim()) return '—';
+      var raw = getScriptText(text);
+      var lines = raw.split(/\n/).map(function (line) {
+        return line.replace(/^\d+[–\-]\d+s:\s*/i, '').trim();
+      }).filter(Boolean);
+      return lines.join('\n\n') || '—';
+    }
+
+    const scriptIconEl = document.getElementById('aiIdeaScriptIcon');
+    const scriptLabelEl = document.getElementById('aiIdeaScriptLabel');
+    const scriptMoreBtn = document.getElementById('aiIdeaScriptMoreBtn');
+    const scriptDetailModal = document.getElementById('aiScriptDetailModal');
+    const scriptDetailTitle = document.getElementById('aiScriptDetailTitle');
+    const scriptDetailContent = document.getElementById('aiScriptDetailContent');
+
+    var currentScriptFullText = '';
+    var currentScriptSectionTitle = '';
+
+    function openModal(payload) {
+      currentAiPayload = payload;
+      titleEl.textContent = payload.title || 'AI-Idee';
+      trendEl.textContent = payload.trend ? 'Trend: ' + payload.trend : '';
+      hookEl.textContent  = payload.hook || '—';
+      notesEl.textContent = payload.notes || '—';
+      ctaEl.textContent   = payload.cta || '—';
+
+      var isTalking = (payload.videoType || '').toLowerCase() === 'talking';
+      var sectionTitle = isTalking ? 'Video-Skript' : 'Dreh-Leitfaden';
+      if (scriptIconEl) scriptIconEl.textContent = isTalking ? '📝' : '🎬';
+      if (scriptLabelEl) scriptLabelEl.textContent = sectionTitle;
+
+      var displayText = isTalking ? getScriptText(payload.script) : formatDrehLeitfaden(payload.script);
+      currentScriptFullText = displayText;
+      currentScriptSectionTitle = sectionTitle;
+
+      if (scriptBody) {
+        scriptBody.textContent = displayText;
+      }
+      if (scriptMoreBtn) scriptMoreBtn.hidden = true;
+
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      takeBtn && takeBtn.focus();
+
+      requestAnimationFrame(function () {
+        if (scriptBody && scriptMoreBtn && scriptBody.scrollHeight > scriptBody.clientHeight) {
+          scriptMoreBtn.hidden = false;
+        }
+      });
+    }
+
+    function openScriptDetailModal() {
+      if (!scriptDetailModal || !scriptDetailTitle || !scriptDetailContent) return;
+      scriptDetailTitle.textContent = currentScriptSectionTitle || 'Dreh-Leitfaden';
+      scriptDetailContent.textContent = currentScriptFullText || '—';
+      scriptDetailModal.classList.add('is-open');
+      scriptDetailModal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeScriptDetailModal() {
+      if (!scriptDetailModal) return;
+      scriptDetailModal.classList.remove('is-open');
+      scriptDetailModal.setAttribute('aria-hidden', 'true');
+    }
+
+    if (scriptMoreBtn) scriptMoreBtn.addEventListener('click', openScriptDetailModal);
+    if (scriptDetailModal) {
+      scriptDetailModal.querySelectorAll('[data-ai-script-detail-close]').forEach(function (el) {
+        el.addEventListener('click', closeScriptDetailModal);
+      });
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && scriptDetailModal && scriptDetailModal.classList.contains('is-open')) closeScriptDetailModal();
+    });
+
+    function closeModal() {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+      currentAiPayload = null;
+    }
+
+    document.querySelectorAll('[data-ai-open]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (btn.classList.contains('ai-idea-block--scheduled')) return;
+        openModal({
+          id: btn.getAttribute('data-ai-id'),
+          title: btn.getAttribute('data-ai-title'),
+          hook: btn.getAttribute('data-ai-hook'),
+          trend: btn.getAttribute('data-ai-trend'),
+          videoType: btn.getAttribute('data-ai-video-type'),
+          script: btn.getAttribute('data-ai-script'),
+          notes: btn.getAttribute('data-ai-notes'),
+          cta: btn.getAttribute('data-ai-cta')
+        });
+      });
+    });
+
+    modal.querySelectorAll('[data-ai-close]').forEach((el) => el.addEventListener('click', closeModal));
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+    });
+
+    // —— Modal: AI Idee überarbeiten (Chat, nur UI/Dummy) ——
+    const reviseModal = document.getElementById('aiReviseModal');
+    const reviseBtn = document.getElementById('aiReviseIdeaBtn');
+    const reviseChatDynamic = document.getElementById('aiReviseChatDynamic');
+    const reviseInput = document.getElementById('aiReviseInput');
+    const reviseSubmit = document.getElementById('aiReviseSubmit');
+
+    function openReviseModal() {
+      if (!reviseModal) return;
+      resetReviseChat();
+      reviseModal.classList.add('is-open');
+      reviseModal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      reviseInput.value = '';
+      reviseInput.disabled = false;
+      reviseSubmit.disabled = false;
+      setTimeout(function () { reviseInput.focus(); }, 100);
+    }
+
+    function closeReviseModal() {
+      if (!reviseModal) return;
+      reviseModal.classList.remove('is-open');
+      reviseModal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = (modal && modal.classList.contains('is-open')) ? 'hidden' : '';
+    }
+
+    function resetReviseChat() {
+      if (!reviseChatDynamic) return;
+      reviseChatDynamic.innerHTML = '';
+    }
+
+    // Dummy-Inhalt für „Überarbeitete Idee“ (Backend ersetzt später echte KI-Antwort)
+    function getDummyRevisedCardHtml() {
+      return (
+        '<div class="ai-revise-revised-card">' +
+        '<h4>Überarbeitete Idee</h4>' +
+        '<div class="ai-revise-revised-section"><strong>Hook</strong><br>Der erste Biss entscheidet alles.</div>' +
+        '<div class="ai-revise-revised-section"><strong>Dreh-Leitfaden</strong><br>Beginne mit einer Nahaufnahme.<br><br>Zeige danach eine humorvolle Reaktion.<br><br>Halte das Video kurz und schnell.</div>' +
+        '<div class="ai-revise-revised-section"><strong>Drehhinweise</strong><br>Talking Head oder leichtes B-Roll. Kurz und humorvoll.</div>' +
+        '<div class="ai-revise-revised-section"><strong>CTA</strong><br>Kommentiere "REZEPT" wenn du es probieren willst.</div>' +
+        '<div class="ai-revise-revised-btns">' +
+        '<button type="button" class="td-button td-button--primary ai-revise-use-idea-btn">Diese Idee verwenden</button>' +
+        '<button type="button" class="td-button td-button--secondary ai-revise-again-btn">Nochmal überarbeiten</button>' +
+        '</div></div>'
+      );
+    }
+
+    function onReviseSubmit() {
+      var text = (reviseInput && reviseInput.value || '').trim();
+      if (!text || !reviseChatDynamic) return;
+
+      // User-Nachricht anzeigen
+      var userMsg = document.createElement('div');
+      userMsg.className = 'chat-msg chat-msg--user';
+      userMsg.textContent = text;
+      reviseChatDynamic.appendChild(userMsg);
+
+      reviseInput.value = '';
+      reviseInput.disabled = true;
+      reviseSubmit.disabled = true;
+
+      // Kurz warten, dann „Neue Idee wird generiert…“
+      setTimeout(function () {
+        var generating = document.createElement('div');
+        generating.className = 'chat-msg chat-msg--assistant';
+        generating.textContent = 'Neue Idee wird generiert…';
+        reviseChatDynamic.appendChild(generating);
+        var chatBody = reviseChatDynamic.closest('.ai-revise-chat-body');
+        if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
+
+        // Dummy-Antwort mit überarbeiteter Idee
+        setTimeout(function () {
+          generating.textContent = 'Hier ist eine überarbeitete Version deiner Idee.';
+          var cardWrap = document.createElement('div');
+          cardWrap.innerHTML = getDummyRevisedCardHtml();
+          reviseChatDynamic.appendChild(cardWrap.firstElementChild);
+          if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
+
+          reviseInput.disabled = false;
+          reviseSubmit.disabled = false;
+
+          // Buttons in der Card: Delegation über Modal
+          var useBtn = reviseChatDynamic.querySelector('.ai-revise-use-idea-btn');
+          var againBtn = reviseChatDynamic.querySelector('.ai-revise-again-btn');
+          if (useBtn) useBtn.addEventListener('click', closeReviseModal);
+          if (againBtn) againBtn.addEventListener('click', function () {
+            resetReviseChat();
+            reviseInput.disabled = false;
+            reviseSubmit.disabled = false;
+            reviseInput.focus();
+          });
+        }, 800);
+      }, 1000);
+    }
+
+    if (reviseBtn) reviseBtn.addEventListener('click', openReviseModal);
+    if (reviseModal) {
+      reviseModal.querySelectorAll('[data-ai-revise-close]').forEach(function (el) {
+        el.addEventListener('click', closeReviseModal);
+      });
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && reviseModal && reviseModal.classList.contains('is-open')) closeReviseModal();
+    });
+    if (reviseSubmit) reviseSubmit.addEventListener('click', onReviseSubmit);
+    if (reviseInput) reviseInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        onReviseSubmit();
+      }
+    });
+
+    // —— Planungs-Modal: Video einplanen ——
+    const planDateEl = document.getElementById('aiPlanDate');
+    const planTimeEl = document.getElementById('aiPlanTime');
+    const planStatusEl = document.getElementById('aiPlanStatus');
+    const planTitleEl = document.getElementById('aiPlanTitle');
+    const planDescEl = document.getElementById('aiPlanDescription');
+    const planSubmitBtn = document.getElementById('aiPlanSubmit');
+
+    function setPlanDateToday() {
+      const d = new Date();
+      planDateEl.value = d.toISOString().slice(0, 10);
+    }
+
+    function openPlanModal() {
+      if (!currentAiPayload || !planModal) return;
+      setPlanDateToday();
+      planTimeEl.value = '12:00';
+      planStatusEl.value = 'ready';
+      planTitleEl.value = currentAiPayload.title || '';
+      planDescEl.value = getScriptText(currentAiPayload.script);
+      planModal.classList.add('is-open');
+      planModal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      planDateEl.focus();
+    }
+
+    const AI_SCHEDULED_KEY = 'trenddash-ai-scheduled';
+    function getScheduledAiIds() {
+      try {
+        const raw = window.localStorage.getItem(AI_SCHEDULED_KEY);
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+      } catch (e) { return []; }
+    }
+    function addScheduledAiId(id) {
+      if (!id) return;
+      const ids = getScheduledAiIds();
+      if (ids.includes(id)) return;
+      ids.push(id);
+      window.localStorage.setItem(AI_SCHEDULED_KEY, JSON.stringify(ids));
+    }
+    function markScheduledAiIdeas() {
+      const scheduled = getScheduledAiIds();
+      document.querySelectorAll('[data-ai-open][data-ai-id]').forEach((btn) => {
+        const id = btn.getAttribute('data-ai-id');
+        const isScheduled = scheduled.includes(id);
+        btn.classList.toggle('ai-idea-block--scheduled', isScheduled);
+        btn.disabled = isScheduled;
+        let badge = btn.querySelector('.ai-idea-block-badge');
+        if (isScheduled) {
+          if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'ai-idea-block-badge';
+            badge.setAttribute('aria-label', 'Bereits eingeplant');
+            btn.querySelector('.ai-idea-block-header')?.appendChild(badge);
+          }
+          badge.textContent = 'Bereits eingeplant';
+        } else if (badge) {
+          badge.remove();
+        }
+      });
+    }
+
+    function closePlanModal(alsoCloseAiModal) {
+      if (!planModal) return;
+      planModal.classList.remove('is-open');
+      planModal.setAttribute('aria-hidden', 'true');
+      if (alsoCloseAiModal && modal && modal.classList.contains('is-open')) {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        currentAiPayload = null;
+      }
+      document.body.style.overflow = (modal && modal.classList.contains('is-open')) ? 'hidden' : '';
+    }
+
+    planModal.querySelectorAll('[data-ai-plan-close]').forEach((el) => el.addEventListener('click', closePlanModal));
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && planModal && planModal.classList.contains('is-open')) closePlanModal();
+    });
+
+    takeBtn?.addEventListener('click', () => {
+      openPlanModal();
+    });
+
+    markScheduledAiIdeas();
+
+    planSubmitBtn?.addEventListener('click', () => {
+      const dateVal = planDateEl?.value;
+      const timeVal = planTimeEl?.value || '12:00';
+      const statusVal = planStatusEl?.value || 'ready';
+      const titleVal = (planTitleEl?.value || '').trim() || (currentAiPayload?.title || 'Neuer Video-Post');
+      const descriptionVal = (planDescEl?.value || '').trim();
+
+      if (!dateVal) {
+        planDateEl?.focus();
+        return;
+      }
+
+      if (window.TrendDashPlanner && typeof window.TrendDashPlanner.upsertPost === 'function') {
+        window.TrendDashPlanner.upsertPost({
+          dateISO: dateVal,
+          time: timeVal,
+          status: statusVal,
+          title: titleVal,
+          notes: descriptionVal
+        });
+        window.dispatchEvent(new CustomEvent('trenddash-planner-updated'));
+      }
+      if (currentAiPayload && currentAiPayload.id) {
+        addScheduledAiId(currentAiPayload.id);
+        markScheduledAiIdeas();
+      }
+      closePlanModal(true);
+    });
+  });
+</script>
+{% endblock %}

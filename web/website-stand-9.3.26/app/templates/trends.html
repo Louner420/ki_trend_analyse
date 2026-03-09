@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ai_ideas.css') }}">
+<div class="dash-page dash-page--v2 trends-page">
+
+  <!-- SECTION 1 — Header -->
+  <div class="dash-page-header">
+    <div>
+      <h1 class="dash-page-title">Trend Analyse</h1>
+      <p class="dash-page-subtitle">
+        Übersicht über aktuelle Trends in deiner Nische basierend auf Hype-Index, Velocity, Engagement und Sentiment.
+      </p>
+    </div>
+  </div>
+
+  {# Trend-Daten mit Index und Opportunity-Score (nur für Sortierung/Anzeige) #}
+  {% set ns = namespace(trends=[]) %}
+  {% for i in range(1, 11) %}
+    {% set vel = result['Avg_Velocity' ~ i] %}
+    {% set eng = engaments['Engament' ~ i] %}
+    {% set hype = result['Trend_Score' ~ i] %}
+    {% set vel_num = (vel|default(0))|float %}
+    {% set eng_num = (eng|default(0))|float %}
+    {% set opp_num = vel_num / 1000.0 + eng_num %}
+    {% set _ = ns.trends.append({
+      'idx': i,
+      'name': themas['Thema' ~ i],
+      'hype': hype,
+      'velocity': vel,
+      'velocity_num': vel_num,
+      'engagement': eng,
+      'engagement_num': eng_num,
+      'sentiment': raw['Sentiment' ~ i],
+      'opp_num': opp_num
+    }) %}
+  {% endfor %}
+  {% set top_by_hype = ns.trends|sort(attribute='hype', reverse=True)|list %}
+  {% set top_four_hype = top_by_hype[:4] if top_by_hype else [] %}
+  {% set rising = ns.trends|sort(attribute='velocity_num', reverse=True)|list %}
+  {% set top_four_rising = rising[:4] if rising else [] %}
+  {% set by_opp = ns.trends|sort(attribute='opp_num', reverse=True)|list %}
+  {% set top_four_opp = by_opp[:4] if by_opp else [] %}
+  {% set global_trends = ns.trends[4:8] if ns.trends|length >= 8 else ns.trends[4:] %}
+
+  {# Zahlenformat: Velocity als 203k, Engagement gerundet #}
+  {% macro fmt_velocity(v) %}
+    {% if v is none or (v|default(0)|float) == 0 %}—{% elif (v|float) >= 1000 %}{{ ((v|float)/1000)|round(1) }}k{% else %}{{ (v|float)|round(1) }}{% endif %}
+  {% endmacro %}
+  {% macro fmt_engagement(e) %}
+    {% if e is none %}—{% else %}{{ (e|float)|round(1) }} %{% endif %}
+  {% endmacro %}
+
+  <!-- SECTION 2 — Top Trends (max 4, klickbar) -->
+  <section class="dash-card trends-section">
+    <div class="card-header">
+      <h2 class="section-title">🔥 Top Trends deiner Nische</h2>
+      <p class="section-subtitle">Die wichtigsten Trends – sortiert nach Hype-Index.</p>
+    </div>
+    <div class="trend-card-grid trend-card-grid--large">
+      {% for t in top_four_hype %}
+        {% set hype_num = (t.hype or 0)|float %}
+        {% if hype_num > 70 %}{% set status_label, status_icon, status_class = 'Viral', '🔥', 'trend-status-viral' %}
+        {% elif hype_num >= 40 %}{% set status_label, status_icon, status_class = 'Rising', '📈', 'trend-status-rising' %}
+        {% else %}{% set status_label, status_icon, status_class = 'Early Trend', '💤', 'trend-status-early' %}{% endif %}
+        <button type="button" class="trend-card trend-card--clickable" data-trend-open data-trend-index="{{ t.idx }}">
+          <div class="trend-card-header">
+            <span class="trend-card-name">{{ t.name or '—' }}</span>
+            <span class="trend-card-badge {{ status_class }}">{{ status_icon }} {{ status_label }}</span>
+          </div>
+          <div class="trend-card-metrics">
+            <div class="trend-card-row"><span class="trend-card-label">Hype-Index</span><span class="trend-card-value">{{ (t.hype|default(0)|float)|round(1) if t.hype is not none else '—' }}</span></div>
+            <div class="trend-card-row"><span class="trend-card-label">Velocity</span><span class="trend-card-value">{{ fmt_velocity(t.velocity) }}</span></div>
+            <div class="trend-card-row"><span class="trend-card-label">Engagement</span><span class="trend-card-value">{{ fmt_engagement(t.engagement) }}</span></div>
+            <div class="trend-card-row"><span class="trend-card-label">Sentiment</span><span class="trend-card-value">{{ t.sentiment or '—' }}</span></div>
+          </div>
+        </button>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- SECTION 3 — Rising Trends (max 4) -->
+  <section class="dash-card trends-section">
+    <div class="card-header">
+      <h2 class="section-title">📈 Rising Trends</h2>
+      <p class="section-subtitle">Trends mit höchster Wachstumsdynamik (Velocity).</p>
+    </div>
+    <div class="trend-card-grid trend-card-grid--large">
+      {% for t in top_four_rising %}
+        {% set vel_num = (t.velocity or 0)|float %}
+        {% if vel_num >= 10000 %}{% set vel_icon, vel_class = '🚀', 'trend-velocity-high' %}{% else %}{% set vel_icon, vel_class = '📈', 'trend-velocity-mid' %}{% endif %}
+        <button type="button" class="trend-card trend-card--clickable" data-trend-open data-trend-index="{{ t.idx }}">
+          <div class="trend-card-header">
+            <span class="trend-card-name">{{ t.name or '—' }}</span>
+            <span class="trend-card-badge {{ vel_class }}">{{ vel_icon }}</span>
+          </div>
+          <div class="trend-card-metrics">
+            <div class="trend-card-row"><span class="trend-card-label">Velocity</span><span class="trend-card-value">{{ fmt_velocity(t.velocity) }}</span></div>
+            <div class="trend-card-row"><span class="trend-card-label">Hype-Index</span><span class="trend-card-value">{{ (t.hype|default(0)|float)|round(1) if t.hype is not none else '—' }}</span></div>
+            <div class="trend-card-row"><span class="trend-card-label">Engagement</span><span class="trend-card-value">{{ fmt_engagement(t.engagement) }}</span></div>
+            <div class="trend-card-row"><span class="trend-card-label">Sentiment</span><span class="trend-card-value">{{ t.sentiment or '—' }}</span></div>
+          </div>
+        </button>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- SECTION 4 — Content Opportunities (max 4) -->
+  <section class="dash-card trends-section">
+    <div class="card-header">
+      <h2 class="section-title">🎯 Content Opportunities</h2>
+      <p class="section-subtitle">Trends mit hohem Content-Potenzial (Velocity + Engagement).</p>
+    </div>
+    <div class="trend-card-grid trend-card-grid--large">
+      {% for t in top_four_opp %}
+        {% set vel_num = (t.velocity or 0)|float %}
+        {% set eng_num = (t.engagement or 0)|float %}
+        {% if vel_num >= 10000 and eng_num >= 30 %}{% set opp_label, opp_icon, opp_class = 'Hohe Opportunity', '🟢', 'trend-opp-high' %}
+        {% elif vel_num >= 1000 or eng_num >= 15 %}{% set opp_label, opp_icon, opp_class = 'Mittlere Opportunity', '🟡', 'trend-opp-mid' %}
+        {% else %}{% set opp_label, opp_icon, opp_class = 'Niedrige Opportunity', '⚪', 'trend-opp-low' %}{% endif %}
+        <button type="button" class="trend-card trend-card--clickable" data-trend-open data-trend-index="{{ t.idx }}">
+          <div class="trend-card-header">
+            <span class="trend-card-name">{{ t.name or '—' }}</span>
+            <span class="trend-card-badge {{ opp_class }}">{{ opp_icon }} {{ opp_label }}</span>
+          </div>
+          <div class="trend-card-metrics">
+            <div class="trend-card-row"><span class="trend-card-label">Hype-Index</span><span class="trend-card-value">{{ (t.hype|default(0)|float)|round(1) if t.hype is not none else '—' }}</span></div>
+            <div class="trend-card-row"><span class="trend-card-label">Velocity</span><span class="trend-card-value">{{ fmt_velocity(t.velocity) }}</span></div>
+            <div class="trend-card-row"><span class="trend-card-label">Engagement</span><span class="trend-card-value">{{ fmt_engagement(t.engagement) }}</span></div>
+            <div class="trend-card-row"><span class="trend-card-label">Sentiment</span><span class="trend-card-value">{{ t.sentiment or '—' }}</span></div>
+          </div>
+        </button>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- SECTION 5 — AI Video Ideen (Layout wie Dashboard) -->
+  {% set ai_ideas = [
+    { "id":"idea-1", "title":"POV: First Bite (Signature Dish)", "hook":"Der erste Biss entscheidet – zeig die Reaktion in 1 Sekunde.", "trend":"POV", "videoType":"visual" },
+    { "id":"idea-2", "title":"Behind the Scenes: 30 Sekunden Küche", "hook":"Niemand sieht den Stress – bis jetzt.", "trend":"BTS", "videoType":"visual" },
+    { "id":"idea-3", "title":"Trend-Sound Remix: Pizza-Transformation", "hook":"Wenn aus Teig 'wow' wird – im Takt.", "trend":"Sound", "videoType":"visual" },
+    { "id":"idea-4", "title":"Warum unser Signature Dish immer ausverkauft ist", "hook":"Viele Gäste fragen uns immer wieder warum genau dieses Gericht bei uns jeden Abend ausverkauft ist.", "trend":"Talking / Story", "videoType":"talking" }
+  ] %}
+  <section class="dash-card trends-section ai-ideas-section">
+    <div class="card-header">
+      <h2 class="section-title">🎬 AI Video Ideen</h2>
+      <p class="section-subtitle">Videoideen basierend auf Trends – klickbar für Details.</p>
+    </div>
+    <div class="trend-ai-idea-grid">
+      {% for idea in ai_ideas %}
+        <button type="button" class="ai-idea-block trend-ai-idea-card" data-ai-idea-open data-ai-title="{{ idea.title }}" data-ai-hook="{{ idea.hook }}" data-ai-trend="{{ idea.trend }}">
+          <div class="ai-idea-block-header">
+            <h4 class="ai-idea-block-title">{{ idea.title }}</h4>
+            <span class="ai-idea-block-tag">{{ idea.trend }}</span>
+          </div>
+          <p class="ai-idea-block-preview">{{ idea.hook }}</p>
+        </button>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- SECTION 6 — Globale Trends (max 4 Karten) -->
+  <section class="dash-card trends-section">
+    <div class="card-header">
+      <h2 class="section-title">🌍 Globale Trends</h2>
+      <p class="section-subtitle">Weitere relevante Trends – Hype-Index, Velocity, Engagement.</p>
+    </div>
+    <div class="trend-card-grid trend-card-grid--large">
+      {% for t in global_trends %}
+        <button type="button" class="trend-card trend-card--clickable trend-card--compact" data-trend-open data-trend-index="{{ t.idx }}">
+          <div class="trend-card-header">
+            <span class="trend-card-name">{{ t.name or '—' }}</span>
+          </div>
+          <div class="trend-card-metrics">
+            <div class="trend-card-row"><span class="trend-card-label">Hype-Index</span><span class="trend-card-value">{{ (t.hype|default(0)|float)|round(1) if t.hype is not none else '—' }}</span></div>
+            <div class="trend-card-row"><span class="trend-card-label">Velocity</span><span class="trend-card-value">{{ fmt_velocity(t.velocity) }}</span></div>
+            <div class="trend-card-row"><span class="trend-card-label">Engagement</span><span class="trend-card-value">{{ fmt_engagement(t.engagement) }}</span></div>
+          </div>
+        </button>
+      {% endfor %}
+    </div>
+  </section>
+
+  {# Trend-Daten für JS (Detail-Modal) #}
+  <script type="application/json" id="trends-data">
+    [
+      {% for t in ns.trends %}
+        {
+          "idx": {{ t.idx }},
+          "name": {{ (t.name or '—')|tojson }},
+          "hype": {{ (t.hype)|tojson }},
+          "velocity": {{ (t.velocity)|tojson }},
+          "velocity_num": {{ t.velocity_num }},
+          "engagement": {{ (t.engagement)|tojson }},
+          "sentiment": {{ (t.sentiment or '—')|tojson }},
+          "opp_num": {{ t.opp_num }}
+        }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ]
+  </script>
+</div>
+
+<!-- Modal: Trend-Detail (Klick auf Trend-Card) -->
+<div class="td-modal" id="trendDetailModal" aria-hidden="true">
+  <div class="td-modal-backdrop" data-trend-detail-close></div>
+  <div class="td-modal-dialog trend-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="trendDetailTitle">
+    <div class="td-modal-header">
+      <h2 class="td-modal-title" id="trendDetailTitle">Trend</h2>
+      <button type="button" class="td-modal-close" data-trend-detail-close aria-label="Schließen">✕</button>
+    </div>
+    <div class="td-modal-body trend-detail-body">
+      <div class="trend-detail-metrics" id="trendDetailMetrics"></div>
+      <div class="trend-detail-viz" id="trendDetailViz"></div>
+      <div class="trend-detail-opportunity" id="trendDetailOpportunity"></div>
+      <h3 class="trend-detail-subtitle">🎬 AI Video Ideen zu diesem Trend</h3>
+      <div class="trend-detail-ideas" id="trendDetailIdeas">
+        {% for idea in ai_ideas %}
+          <div class="trend-detail-idea-item">
+            <strong>{{ idea.title }}</strong>
+            <span class="trend-detail-idea-tag">{{ idea.trend }}</span>
+            <p class="trend-detail-idea-hook">{{ idea.hook }}</p>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="td-modal-footer">
+      <button type="button" class="td-button td-button--secondary" data-trend-detail-close>Schließen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: AI-Idee Kurzdetail (Klick auf AI-Idee-Karte) -->
+<div class="td-modal" id="trendAiIdeaModal" aria-hidden="true">
+  <div class="td-modal-backdrop" data-ai-idea-close></div>
+  <div class="td-modal-dialog" role="dialog" aria-modal="true">
+    <div class="td-modal-header">
+      <h2 class="td-modal-title" id="trendAiIdeaTitle">AI Video Idee</h2>
+      <button type="button" class="td-modal-close" data-ai-idea-close aria-label="Schließen">✕</button>
+    </div>
+    <div class="td-modal-body">
+      <p class="td-modal-sub" id="trendAiIdeaTrend"></p>
+      <p id="trendAiIdeaHook"></p>
+    </div>
+    <div class="td-modal-footer">
+      <a href="{{ url_for('main.planner') }}" class="td-button td-button--primary">Im Content Planner verwenden</a>
+      <button type="button" class="td-button td-button--secondary" data-ai-idea-close>Schließen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var trendsData = [];
+  try {
+    var el = document.getElementById('trends-data');
+    if (el) trendsData = JSON.parse(el.textContent);
+  } catch (e) {}
+
+  function fmtVel(v) {
+    if (v == null || v === '') return '—';
+    var n = parseFloat(v);
+    if (isNaN(n)) return '—';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+    return n.toFixed(1);
+  }
+  function fmtEng(e) {
+    if (e == null || e === '') return '—';
+    var n = parseFloat(e);
+    return isNaN(n) ? '—' : n.toFixed(1) + ' %';
+  }
+
+  function openTrendDetail(idx) {
+    var t = trendsData.find(function(x) { return x.idx === idx; });
+    if (!t) return;
+    var modal = document.getElementById('trendDetailModal');
+    var titleEl = document.getElementById('trendDetailTitle');
+    var metricsEl = document.getElementById('trendDetailMetrics');
+    var oppEl = document.getElementById('trendDetailOpportunity');
+    if (!modal || !titleEl || !metricsEl) return;
+    titleEl.textContent = t.name || 'Trend';
+    metricsEl.innerHTML =
+      '<div class="trend-detail-row"><span>Hype-Index</span><strong>' + (t.hype != null ? parseFloat(t.hype).toFixed(1) : '—') + '</strong></div>' +
+      '<div class="trend-detail-row"><span>Velocity</span><strong>' + fmtVel(t.velocity) + '</strong></div>' +
+      '<div class="trend-detail-row"><span>Engagement</span><strong>' + fmtEng(t.engagement) + '</strong></div>' +
+      '<div class="trend-detail-row"><span>Sentiment</span><strong>' + (t.sentiment || '—') + '</strong></div>';
+    var v = (t.velocity_num || 0), e = (t.engagement != null ? parseFloat(t.engagement) : 0);
+    var oppText = v >= 10000 && e >= 30 ? '🟢 Hohe Opportunity' : (v >= 1000 || e >= 15) ? '🟡 Mittlere Opportunity' : '⚪ Niedrige Opportunity';
+    oppEl.textContent = 'Trend Opportunity: ' + oppText;
+    var vizEl = document.getElementById('trendDetailViz');
+    if (vizEl) {
+      var hypeVal = t.hype != null ? Math.min(100, Math.max(0, parseFloat(t.hype))) : 0;
+      var velPct = Math.min(100, (t.velocity_num || 0) / 500);
+      var engVal = t.engagement != null ? Math.min(100, parseFloat(t.engagement)) : 0;
+      vizEl.innerHTML =
+        '<div class="trend-viz-bar"><span class="trend-viz-label">Hype</span><div class="trend-viz-track"><div class="trend-viz-fill" style="width:' + hypeVal + '%"></div></div><span class="trend-viz-pct">' + (t.hype != null ? parseFloat(t.hype).toFixed(1) : '—') + '</span></div>' +
+        '<div class="trend-viz-bar"><span class="trend-viz-label">Velocity</span><div class="trend-viz-track"><div class="trend-viz-fill" style="width:' + velPct + '%"></div></div><span class="trend-viz-pct">' + fmtVel(t.velocity) + '</span></div>' +
+        '<div class="trend-viz-bar"><span class="trend-viz-label">Engagement</span><div class="trend-viz-track"><div class="trend-viz-fill" style="width:' + engVal + '%"></div></div><span class="trend-viz-pct">' + fmtEng(t.engagement) + '</span></div>';
+    }
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeTrendDetail() {
+    var modal = document.getElementById('trendDetailModal');
+    if (modal) {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+  }
+
+  document.querySelectorAll('[data-trend-open]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var idx = parseInt(btn.getAttribute('data-trend-index'), 10);
+      if (!isNaN(idx)) openTrendDetail(idx);
+    });
+  });
+  document.querySelectorAll('[data-trend-detail-close]').forEach(function(el) {
+    el.addEventListener('click', closeTrendDetail);
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      if (document.getElementById('trendDetailModal').classList.contains('is-open')) closeTrendDetail();
+      if (document.getElementById('trendAiIdeaModal').classList.contains('is-open')) closeAiIdeaModal();
+    }
+  });
+
+  function openAiIdeaModal(title, hook, trend) {
+    var modal = document.getElementById('trendAiIdeaModal');
+    if (!modal) return;
+    document.getElementById('trendAiIdeaTitle').textContent = title || 'AI Video Idee';
+    document.getElementById('trendAiIdeaTrend').textContent = trend || '';
+    document.getElementById('trendAiIdeaHook').textContent = hook || '';
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeAiIdeaModal() {
+    var modal = document.getElementById('trendAiIdeaModal');
+    if (modal) {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+  }
+  document.querySelectorAll('[data-ai-idea-open]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      openAiIdeaModal(
+        btn.getAttribute('data-ai-title'),
+        btn.getAttribute('data-ai-hook'),
+        btn.getAttribute('data-ai-trend')
+      );
+    });
+  });
+  document.querySelectorAll('[data-ai-idea-close]').forEach(function(el) {
+    el.addEventListener('click', closeAiIdeaModal);
+  });
+})();
+</script>
+{% endblock %}

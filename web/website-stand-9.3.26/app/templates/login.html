@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title or "TrendDash – Login" }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+
+<div class="auth-page" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;">
+    <div class="dash-card" style="width:100%;max-width:420px;margin:auto;">
+        
+        <div style="margin-bottom:18px;display:flex;flex-direction:column;gap:8px;">
+            <div class="sidebar-logo">
+                <div class="logo-mark">↗</div>
+                <div class="logo-text">TrendDash</div>
+            </div>
+
+            <h1 class="dash-page-title" style="font-size:22px;">Anmelden</h1>
+
+            <p class="dash-page-subtitle">
+                Melde dich an, um dein TrendDash-Dashboard zu öffnen.
+            </p>
+        </div>
+
+        {% if error %}
+        <div style="margin-bottom:12px;padding:10px 12px;border-radius:12px;border:1px solid rgba(239,68,68,.7);background:rgba(239,68,68,.10);color:#fecaca;font-size:12px;">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('main.login_post') }}" style="display:flex;flex-direction:column;gap:14px;margin-top:4px;">
+            
+            <div class="form-group">
+                <label for="email">E-Mail oder Benutzername</label>
+                <input
+                    type="text"
+                    id="email"
+                    name="email"
+                    value="{{ email or '' }}"
+                    placeholder="you@example.com"
+                    autocomplete="username"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="password">Passwort</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    placeholder="••••••••"
+                    autocomplete="current-password"
+                    required
+                >
+            </div>
+
+            <button type="submit" class="btn-primary" style="width:100%;margin-top:6px;">
+                Einloggen
+            </button>
+        </form>
+
+        <!-- Registrierung Link -->
+        <p class="dash-page-subtitle" style="margin-top:14px;font-size:13px;text-align:center;">
+            Noch kein Konto?
+            <a href="{{ url_for('main.register') }}">Jetzt registrieren</a>
+        </p>
+
+        <p class="dash-page-subtitle" style="margin-top:8px;font-size:12px;text-align:center;">
+            Nur autorisierte Benutzer.
+        </p>
+
+        <footer class="auth-footer" style="margin-top:24px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08);text-align:center;font-size:12px;color:var(--muted, rgba(238,240,246,.55));">
+            <a href="{{ url_for('main.impressum') }}">Impressum</a>
+            <span style="margin:0 8px;opacity:.6;">·</span>
+            <a href="{{ url_for('main.datenschutz') }}">Datenschutz</a>
+        </footer>
+    </div>
+</div>
+
+</body>
+</html>

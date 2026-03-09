@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="planner-page planner-month-page dash-page" data-planner-page data-planner-view="month">
+
+  <header class="planner-month-page-header">
+    <a href="{{ url_for('main.planner') }}" class="planner-month-back-btn">← Zurück zum Content Planner</a>
+    <span class="planner-month-label planner-month-label--center" data-month-label>März 2026</span>
+    <div class="planner-month-nav" aria-label="Monat wechseln">
+      <button type="button" class="planner-month-nav-btn" data-month-nav="prev" aria-label="Vorheriger Monat">←</button>
+      <button type="button" class="planner-month-nav-btn" data-month-nav="next" aria-label="Nächster Monat">→</button>
+    </div>
+  </header>
+
+  <section class="dash-card planner-month-card">
+    <div class="planner-month-grid-wrap">
+      <div class="planner-month-grid" data-month-grid role="grid" aria-label="Kalender"></div>
+    </div>
+  </section>
+</div>
+
+{% include '_post_edit_modal.html' %}
+
+<script src="{{ url_for('static', filename='js/planner.js') }}"></script>
+<script src="{{ url_for('static', filename='js/post-edit-modal.js') }}"></script>
+{% endblock %}

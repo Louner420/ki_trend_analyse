@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ai_ideas.css') }}">
+<div class="planner-page dash-page" data-planner-page data-planner-view="week">
+
+  <!-- 1) Header: Titel, Beschreibung, Button Monatsansicht -->
+  <header class="planner-page-header">
+    <div class="planner-page-header-text">
+      <h1 class="planner-page-title">Content Planner</h1>
+      <p class="planner-page-subtitle">
+        Plane und organisiere deine Content-Posts.
+      </p>
+    </div>
+    <a href="{{ url_for('main.planner_month') }}" class="planner-month-link-btn">
+      <span class="planner-month-link-icon" aria-hidden="true">📅</span>
+      Monatsansicht öffnen
+    </a>
+  </header>
+
+  <!-- 2) Wochenplan (kompakt, wie Dashboard) -->
+  <section class="dash-card planner-week-card" data-week-context="planner">
+    <div class="planner-week-header">
+      <div>
+        <h2 class="section-title">Wochenübersicht</h2>
+        <p class="section-subtitle" data-week-label></p>
+      </div>
+      <div class="planner-week-controls">
+        <button class="week-nav-btn" data-week-nav="prev" aria-label="Vorherige Woche">‹</button>
+        <button class="week-nav-btn" data-week-nav="next" aria-label="Nächste Woche">›</button>
+      </div>
+    </div>
+    <div class="planner-week-grid" data-planner-week-grid></div>
+  </section>
+
+  <!-- 3) Zwei Spalten: Unscheduled Ideas (wie AI-Videoideen) | To-Dos & Content-Gaps (wie Dashboard) -->
+  <div class="planner-two-cols dash-two-col">
+    <section class="dash-card dash-card--equal dash-ai-card ai-ideas-section" id="planner-unscheduled-card">
+      <div class="card-header">
+        <h3 class="section-title">Unscheduled Ideas</h3>
+        <p class="section-subtitle">
+          Ideen, die noch keinem Datum zugeordnet sind.
+        </p>
+      </div>
+      <div class="ai-idea-list" data-unscheduled-list role="list">
+        <!-- Von planner.js befüllt (max 5 + Button "Alle Ideen anzeigen") -->
+      </div>
+      <button type="button" class="td-button planner-unscheduled-show-all" id="plannerUnscheduledShowAll" hidden>
+        Alle Ideen anzeigen
+      </button>
+    </section>
+    <section class="dash-card dash-card--equal dash-todos-card" id="planner-todos">
+      <div class="card-header">
+        <h3 class="section-title">To-Dos &amp; Content-Gaps</h3>
+        <p class="section-subtitle">
+          Automatisch für die nächsten 30 Tage. Klick öffnet Video im Edit-Modal oder Detail.
+        </p>
+      </div>
+      <div class="todo-list-wrapper" role="list" aria-label="To-Dos nächste 30 Tage">
+        <!-- Wird von dashboard-todos.js befüllt (gleiche Komponente wie Dashboard) -->
+      </div>
+      <div class="todo-empty todo-empty-state" hidden>
+        <span class="todo-empty-icon" aria-hidden="true">✅</span>
+        <strong class="todo-empty-title">Alles erledigt</strong>
+        <p class="todo-empty-desc">Für die nächsten 30 Tage gibt es aktuell keine offenen Aufgaben.</p>
+      </div>
+      <button type="button" class="td-button todo-show-all-btn" hidden>
+        Alle Aufgaben anzeigen
+      </button>
+    </section>
+  </div>
+</div>
+
+<!-- Modal: Idee einplanen -->
+<div class="td-modal" id="plannerScheduleIdeaModal" aria-hidden="true">
+  <div class="td-modal-backdrop" data-schedule-idea-close></div>
+  <div class="td-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="plannerScheduleIdeaTitle">
+    <div class="td-modal-header">
+      <h2 class="td-modal-title" id="plannerScheduleIdeaTitle">Idee einplanen</h2>
+      <button type="button" class="td-modal-close" data-schedule-idea-close aria-label="Schließen">✕</button>
+    </div>
+    <div class="td-modal-body">
+      <div class="td-modal-block">
+        <label class="td-modal-label" for="plannerScheduleDate">Datum</label>
+        <input type="date" id="plannerScheduleDate" class="td-modal-input" required>
+      </div>
+      <div class="td-modal-block">
+        <label class="td-modal-label" for="plannerScheduleTime">Uhrzeit</label>
+        <input type="time" id="plannerScheduleTime" class="td-modal-input" value="18:00">
+      </div>
+    </div>
+    <div class="td-modal-footer">
+      <button type="button" class="td-button td-button--secondary" data-schedule-idea-close>Abbrechen</button>
+      <button type="button" class="td-button td-button--primary" id="plannerScheduleIdeaSubmit">Einplanen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: To-Do Detail (gleiche Komponente wie Dashboard) -->
+<div class="td-modal" id="todoDetailModal" aria-hidden="true">
+  <div class="td-modal-backdrop" data-todo-modal-close></div>
+  <div class="td-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="todoDetailTitle">
+    <div class="td-modal-header">
+      <div>
+        <div class="td-modal-title" id="todoDetailTitle" data-todo-modal-title>To-Do</div>
+      </div>
+      <button type="button" class="td-modal-close" data-todo-modal-close aria-label="Schließen">✕</button>
+    </div>
+    <div class="td-modal-body">
+      <div class="td-modal-block">
+        <div class="td-modal-label">Erklärung</div>
+        <div class="td-modal-text" data-todo-modal-explanation>—</div>
+      </div>
+      <div class="td-modal-block">
+        <div class="td-modal-label">Kontext</div>
+        <div class="td-modal-text" data-todo-modal-context>—</div>
+      </div>
+      <div class="td-modal-block">
+        <div class="td-modal-label">Handlungsschritt</div>
+        <div class="td-modal-text" data-todo-modal-action>—</div>
+      </div>
+    </div>
+    <div class="td-modal-footer" data-todo-modal-buttons></div>
+  </div>
+</div>
+
+<!-- Overlay: Alle To-Dos (nächste 30 Tage) -->
+<div class="td-modal todo-all-overlay" id="todoAllOverlay" aria-hidden="true">
+  <div class="td-modal-backdrop" data-todo-overlay-close></div>
+  <div class="td-modal-dialog todo-overlay-dialog" role="dialog" aria-labelledby="todoAllOverlayTitle">
+    <div class="td-modal-header">
+      <h2 class="td-modal-title" id="todoAllOverlayTitle">Alle Aufgaben (nächste 30 Tage)</h2>
+      <button type="button" class="td-modal-close" data-todo-overlay-close aria-label="Schließen">✕</button>
+    </div>
+    <div class="todo-overlay-content">
+      <div class="todo-overlay-head">
+        <span class="todo-overlay-head-date">Datum</span>
+        <span class="todo-overlay-head-task">Aufgabe</span>
+        <span class="todo-overlay-head-deadline">Deadline</span>
+        <span class="todo-overlay-head-action"></span>
+      </div>
+      <div class="todo-overlay-list" id="todoAllOverlayList"></div>
+    </div>
+  </div>
+</div>
+
+{% include '_post_edit_modal.html' %}
+
+<script src="{{ url_for('static', filename='js/planner.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard-todos.js') }}"></script>
+<script src="{{ url_for('static', filename='js/post-edit-modal.js') }}"></script>
+{% endblock %}
