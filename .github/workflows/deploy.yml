@@ -20,7 +20,7 @@ jobs:
         with:
           registry: ghcr.io
           username: Louner
-          password: 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
+          password: secrets.GITHUB_TOKEN
 
       - name: Image bauen und hochladen
         uses: docker/build-push-action@v5
