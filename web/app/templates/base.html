@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ title or "TrendDash" }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <script>
+    (function(){
+      if (localStorage.getItem('trenddash_theme') === 'light') document.documentElement.classList.add('theme-light');
+    })();
+    </script>
+</head>
+
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+<body>
+<!-- Icon set (monochrome, no emoji) -->
+<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden">
+    <symbol id="i-home" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 3l9 8h-3v9h-5v-6H11v6H6v-9H3l9-8z"/>
+    </symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M7 2h2v2h6V2h2v2h3v18H4V4h3V2zm13 8H4v10h16V10z"/>
+    </symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 2l1.6 6.2L20 10l-6.4 1.8L12 18l-1.6-6.2L4 10l6.4-1.8L12 2z"/>
+    </symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M4 19h16v2H2V3h2v16zm4-2H6V9h2v8zm5 0h-2V5h2v12zm5 0h-2v-6h2v6z"/>
+    </symbol>
+    <symbol id="i-search" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M10 2a8 8 0 105.3 14l4.7 4.7 1.4-1.4-4.7-4.7A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z"/>
+    </symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M4 4h16v11H7l-3 3V4zm2 2v8.2L6.2 14H18V6H6z"/>
+    </symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 22a2.5 2.5 0 002.45-2h-4.9A2.5 2.5 0 0012 22zm7-6V11a7 7 0 00-5-6.7V3a2 2 0 10-4 0v1.3A7 7 0 005 11v5l-2 2v1h20v-1l-2-2z"/>
+    </symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M19.4 13a7.9 7.9 0 000-2l2-1.5-2-3.5-2.3.8a7.4 7.4 0 00-1.7-1L15 2h-6l-.4 2.8a7.4 7.4 0 00-1.7 1L4.6 5.9l-2 3.5L4.6 11a7.9 7.9 0 000 2l-2 1.5 2 3.5 2.3-.8a7.4 7.4 0 001.7 1L9 22h6l.4-2.8a7.4 7.4 0 001.7-1l2.3.8 2-3.5-2-1.5zM12 16a4 4 0 110-8 4 4 0 010 8z"/>
+    </symbol>
+    <symbol id="i-tasks" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M3 3h18v2H3V3zm0 4h18v2H3V7zm0 4h14v2H3v-2zm0 4h10v2H3v-2z"/>
+    </symbol>
+</svg>
+
+<div class="app-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-mark">↗</div>
+            <div class="logo-text">TrendDash</div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('main.index') }}"
+               class="nav-item {% if title == 'Dashboard' %}nav-item-active{% endif %}">
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-home"></use></svg>
+                <span class="nav-label">Dashboard</span>
+            </a>
+
+            <a href="{{ url_for('main.planner') }}"
+               class="nav-item {% if title == 'Content Planner' %}nav-item-active{% endif %}">
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-calendar"></use></svg>
+                <span class="nav-label">Content Planner</span>
+            </a>
+
+            <a href="{{ url_for('main.trends') }}"
+               class="nav-item {% if title == 'Trends Explorer' %}nav-item-active{% endif %}">
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-spark"></use></svg>
+                <span class="nav-label">Trend Analysis</span>
+            </a>
+
+            <a href="{{ url_for('main.tasks') }}"
+               class="nav-item {% if title == 'Tasks' %}nav-item-active{% endif %}"
+               id="nav-item-tasks">
+                <svg class="nav-icon" aria-hidden="true"><use href="#i-tasks"></use></svg>
+                <span class="nav-label">Tasks</span>
+                <span class="nav-task-badge" id="sidebar-task-count" aria-label="Offene Aufgaben" hidden>0</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- MAIN AREA -->
+    <div class="main-area">
+
+        <!-- TOPBAR: Heute Fokus | AI Idee | Notifications | Account -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Navigation öffnen">☰</button>
+                <button class="topbar-btn topbar-btn-focus" id="focusModeToggle" type="button" aria-pressed="false" aria-label="Heute Fokus Modus">
+                    <span class="topbar-btn-icon" aria-hidden="true">🎯</span>
+                    <span class="topbar-btn-label">Heute Fokus</span>
+                </button>
+                <button class="topbar-btn topbar-btn-ai" id="aiIdeaGeneratorOpen" type="button" aria-label="AI Idee generieren">
+                    <span class="topbar-btn-icon" aria-hidden="true">⚡</span>
+                    <span class="topbar-btn-label">AI Idee</span>
+                </button>
+            </div>
+
+            <div class="topbar-right">
+                <div class="notif-wrapper">
+                    <button class="icon-button" id="notifToggle" title="Benachrichtigungen" type="button" aria-label="Benachrichtigungen">
+                        <svg class="icon" aria-hidden="true"><use href="#i-bell"></use></svg>
+                        <span class="notif-badge" id="notifBadge" aria-hidden="true">3</span>
+                    </button>
+                    <div class="notif-panel" id="notifPanel">
+                        <div class="notif-header">🔔 Benachrichtigungen</div>
+                        <div class="notif-list" id="notifList">
+                            <div class="notif-item">
+                                <div class="notif-icon">🔥</div>
+                                <div class="notif-body">
+                                    <div class="notif-title">Neuer Trend: „Street Food“</div>
+                                    <div class="notif-meta">Heute 13:22</div>
+                                </div>
+                            </div>
+                            <div class="notif-item">
+                                <div class="notif-icon">⚠️</div>
+                                <div class="notif-body">
+                                    <div class="notif-title">Upload heute noch nicht erledigt</div>
+                                    <div class="notif-meta">Video: Behind the Scenes</div>
+                                </div>
+                            </div>
+                            <div class="notif-item">
+                                <div class="notif-icon">📈</div>
+                                <div class="notif-body">
+                                    <div class="notif-title">Rising Trend entdeckt</div>
+                                    <div class="notif-meta">Trend: Pizza Transformation</div>
+                                </div>
+                            </div>
+                            <div class="notif-item">
+                                <div class="notif-icon">📅</div>
+                                <div class="notif-body">
+                                    <div class="notif-title">Deadline heute</div>
+                                    <div class="notif-meta">Editing Task: Coffee Art</div>
+                                </div>
+                            </div>
+                            <div class="notif-item">
+                                <div class="notif-icon">🎯</div>
+                                <div class="notif-body">
+                                    <div class="notif-title">Opportunity Trend entdeckt</div>
+                                    <div class="notif-meta">Hohe Velocity + Engagement</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="notif-footer">
+                            <button class="text-button" type="button">Alle anzeigen</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="profile-wrapper">
+                    <button class="profile-button" id="profileToggle" type="button" aria-label="Profil">
+                        <span class="profile-name">{{ display_name or 'User' }}</span>
+                        <div class="profile-avatar">{{ (display_name or 'U')[:1]|upper }}</div>
+                    </button>
+                    <div class="profile-menu" id="profileMenu">
+                        <div class="profile-menu-header">
+                            Signed in as
+                            <div class="profile-menu-name">{{ display_name or 'User' }}</div>
+                        </div>
+                        <a href="{{ url_for('main.settings') }}" class="profile-menu-item profile-menu-item-link">
+                            <svg class="menu-icon" aria-hidden="true"><use href="#i-settings"></use></svg>
+                            Workspace Settings
+                        </a>
+                        <a href="{{ url_for('main.logout') }}" class="profile-menu-item profile-menu-item-link">Abmelden</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- CONTENT (ausgeblendet im Fokus-Modus) -->
+        <main class="content" id="mainContent">
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- HEUTE FOKUS VIEW (nur sichtbar wenn Fokus-Modus aktiv) -->
+        <div class="focus-mode-view" id="focusModeView" hidden>
+            <div class="focus-mode-inner">
+                <section class="dash-card focus-section">
+                    <h2 class="section-title">Heute wichtige Aufgaben</h2>
+                    <p class="section-subtitle">Upload, Editing, Review und Deadlines für heute.</p>
+                    <div class="focus-task-list">
+                        <div class="focus-task-item">
+                            <span class="focus-task-icon">📤</span>
+                            <div class="focus-task-body">
+                                <strong>Upload heute</strong>
+                                <span class="focus-task-meta">Behind the Scenes · TikTok</span>
+                            </div>
+                        </div>
+                        <div class="focus-task-item">
+                            <span class="focus-task-icon">✂️</span>
+                            <div class="focus-task-body">
+                                <strong>Editing Tasks</strong>
+                                <span class="focus-task-meta">2 Videos in Bearbeitung</span>
+                            </div>
+                        </div>
+                        <div class="focus-task-item">
+                            <span class="focus-task-icon">👁</span>
+                            <div class="focus-task-body">
+                                <strong>Videos im Review</strong>
+                                <span class="focus-task-meta">Pizza POV – Feedback einholen</span>
+                            </div>
+                        </div>
+                        <div class="focus-task-item">
+                            <span class="focus-task-icon">⏰</span>
+                            <div class="focus-task-body">
+                                <strong>Deadline Tasks</strong>
+                                <span class="focus-task-meta">Coffee Art – heute 18:00</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <section class="dash-card focus-section">
+                    <h2 class="section-title">Schnelle AI Video Ideen</h2>
+                    <p class="section-subtitle">Ideen zum direkten Umsetzen.</p>
+                    <div class="focus-ideas-grid">
+                        <div class="focus-idea-card">
+                            <h4 class="focus-idea-title">POV: First Bite</h4>
+                            <p class="focus-idea-preview">Der erste Biss – Reaktion in 1 Sekunde.</p>
+                            <span class="focus-idea-tag">POV</span>
+                        </div>
+                        <div class="focus-idea-card">
+                            <h4 class="focus-idea-title">Behind the Scenes: Küche</h4>
+                            <p class="focus-idea-preview">30 Sekunden Stress & Vorbereitung.</p>
+                            <span class="focus-idea-tag">BTS</span>
+                        </div>
+                        <div class="focus-idea-card">
+                            <h4 class="focus-idea-title">Trend-Sound Remix</h4>
+                            <p class="focus-idea-preview">Pizza-Transformation im Takt.</p>
+                            <span class="focus-idea-tag">Sound</span>
+                        </div>
+                    </div>
+                </section>
+                <section class="dash-card focus-section">
+                    <h2 class="section-title">Quick Actions</h2>
+                    <div class="focus-quick-actions">
+                        <a href="{{ url_for('main.planner') }}" class="focus-action-btn">
+                            <span class="focus-action-icon">+</span>
+                            Video planen
+                        </a>
+                        <button type="button" class="focus-action-btn" id="focusAiIdeaBtn">
+                            <span class="focus-action-icon">+</span>
+                            Idee generieren
+                        </button>
+                        <a href="{{ url_for('main.tasks') }}" class="focus-action-btn">
+                            <span class="focus-action-icon">+</span>
+                            Task erstellen
+                        </a>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- Modal: AI Idea Generator (3 Steps, nur Frontend) -->
+        <div class="td-modal" id="aiIdeaGeneratorModal" aria-hidden="true">
+            <div class="td-modal-backdrop" data-ai-gen-close></div>
+            <div class="td-modal-dialog ai-gen-dialog" role="dialog" aria-modal="true" aria-labelledby="aiGenModalTitle">
+                <div class="td-modal-header">
+                    <h2 class="td-modal-title" id="aiGenModalTitle">⚡ AI Idee generieren</h2>
+                    <button type="button" class="td-modal-close" data-ai-gen-close aria-label="Schließen">✕</button>
+                </div>
+                <div class="td-modal-body ai-gen-body">
+                    <!-- Step 1: Kontext -->
+                    <div class="ai-gen-step" id="aiGenStep1">
+                        <p class="ai-gen-step-desc">Beschreibe das Thema und optional das Format.</p>
+                        <div class="ai-gen-field">
+                            <label class="ai-gen-label">Thema / Kontext</label>
+                            <input type="text" class="ai-gen-input" id="aiGenThema" placeholder="z.B. Pizza Restaurant, Street Interview über Burger, Trend über Coffee Art">
+                        </div>
+                        <div class="ai-gen-field">
+                            <label class="ai-gen-label">Format (optional)</label>
+                            <select class="ai-gen-select" id="aiGenFormat">
+                                <option value="">— Auswählen —</option>
+                                <option value="POV">POV</option>
+                                <option value="Story">Story</option>
+                                <option value="Behind the Scenes">Behind the Scenes</option>
+                                <option value="Trend Remix">Trend Remix</option>
+                            </select>
+                        </div>
+                        <button type="button" class="td-button td-button--primary ai-gen-btn" id="aiGenBtnLeitfaden">Idee generieren</button>
+                    </div>
+                    <!-- Step 2: Leitfaden -->
+                    <div class="ai-gen-step" id="aiGenStep2" hidden>
+                        <p class="ai-gen-step-desc">Leitfaden bearbeiten oder fortfahren.</p>
+                        <div class="ai-gen-guide">
+                            <div class="ai-gen-guide-block">
+                                <h4 class="ai-gen-guide-label">Hook Idee</h4>
+                                <textarea class="ai-gen-textarea" id="aiGenHook" rows="2"></textarea>
+                            </div>
+                            <div class="ai-gen-guide-block">
+                                <h4 class="ai-gen-guide-label">Story Aufbau</h4>
+                                <textarea class="ai-gen-textarea" id="aiGenStory" rows="3"></textarea>
+                            </div>
+                            <div class="ai-gen-guide-block">
+                                <h4 class="ai-gen-guide-label">Video Ablauf</h4>
+                                <textarea class="ai-gen-textarea" id="aiGenAblauf" rows="3"></textarea>
+                            </div>
+                            <div class="ai-gen-guide-block">
+                                <h4 class="ai-gen-guide-label">CTA Vorschlag</h4>
+                                <textarea class="ai-gen-textarea" id="aiGenCta" rows="2"></textarea>
+                            </div>
+                        </div>
+                        <button type="button" class="td-button td-button--primary ai-gen-btn" id="aiGenBtnScript">Generate Script</button>
+                    </div>
+                    <!-- Step 3: Script -->
+                    <div class="ai-gen-step" id="aiGenStep3" hidden>
+                        <p class="ai-gen-step-desc">Script kopieren oder später speichern.</p>
+                        <div class="ai-gen-script-box">
+                            <div class="ai-gen-script-block">
+                                <h4 class="ai-gen-guide-label">Hook</h4>
+                                <div class="ai-gen-script-text" id="aiGenScriptHook"></div>
+                            </div>
+                            <div class="ai-gen-script-block">
+                                <h4 class="ai-gen-guide-label">Main Content</h4>
+                                <div class="ai-gen-script-text" id="aiGenScriptMain"></div>
+                            </div>
+                            <div class="ai-gen-script-block">
+                                <h4 class="ai-gen-guide-label">Shots / Szenen</h4>
+                                <div class="ai-gen-script-text" id="aiGenScriptShots"></div>
+                            </div>
+                            <div class="ai-gen-script-block">
+                                <h4 class="ai-gen-guide-label">Call to Action</h4>
+                                <div class="ai-gen-script-text" id="aiGenScriptCta"></div>
+                            </div>
+                        </div>
+                        <div class="ai-gen-actions">
+                            <button type="button" class="td-button td-button--secondary" id="aiGenCopyScript">Script kopieren</button>
+                            <button type="button" class="td-button td-button--secondary" data-ai-gen-close>Schließen</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FOOTER (Impressum & Datenschutz) -->
+        <footer class="main-footer">
+            <a href="{{ url_for('main.impressum') }}">Impressum</a>
+            <span class="footer-sep">·</span>
+            <a href="{{ url_for('main.datenschutz') }}">Datenschutz</a>
+        </footer>
+
+        <!-- CHAT PANEL -->
+        <aside class="chat-panel" id="chatPanel">
+            <div class="chat-header">
+                <div class="chat-title">Team Chat</div>
+                <button class="icon-button" id="chatClose" type="button" aria-label="Close Chat">
+                    ✕
+                </button>
+            </div>
+            <div class="chat-body" id="chatBody">
+                <div class="chat-message chat-message-left">
+                    <div class="chat-bubble">Hey! Heute schon Trends gecheckt?</div>
+                    <div class="chat-badge">Max</div>
+                </div>
+                <div class="chat-message chat-message-left">
+                    <div class="chat-bubble">Planner ist ready – kannst du die Woche fixieren?</div>
+                    <div class="chat-badge">Thomas</div>
+                </div>
+            </div>
+            <form class="chat-form" id="chatForm">
+                <input class="chat-input" id="chatInput" type="text" placeholder="Nachricht schreiben …" autocomplete="off">
+                <button class="chat-send" type="submit">Send</button>
+            </form>
+        </aside>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Notif Panel
+        const notifToggle = document.getElementById('notifToggle');
+        const notifPanel = document.getElementById('notifPanel');
+        if (notifToggle && notifPanel) {
+            notifToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                notifPanel.classList.toggle('is-open');
+            });
+            document.addEventListener('click', (e) => {
+                if (!notifPanel.contains(e.target) && !notifToggle.contains(e.target)) {
+                    notifPanel.classList.remove('is-open');
+                }
+            });
+        }
+
+        // Heute Fokus Modus
+        const focusToggle = document.getElementById('focusModeToggle');
+        const mainContent = document.getElementById('mainContent');
+        const focusModeView = document.getElementById('focusModeView');
+        const focusAiIdeaBtn = document.getElementById('focusAiIdeaBtn');
+        if (focusToggle && mainContent && focusModeView) {
+            focusToggle.addEventListener('click', () => {
+                const isActive = focusModeView.hidden;
+                focusModeView.hidden = !isActive;
+                mainContent.style.display = isActive ? 'none' : '';
+                focusToggle.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                focusToggle.classList.toggle('is-active', isActive);
+            });
+            if (focusAiIdeaBtn) {
+                focusAiIdeaBtn.addEventListener('click', () => {
+                    focusModeView.hidden = true;
+                    mainContent.style.display = '';
+                    focusToggle.setAttribute('aria-pressed', 'false');
+                    focusToggle.classList.remove('is-active');
+                    document.getElementById('aiIdeaGeneratorOpen')?.click();
+                });
+            }
+        }
+
+        // AI Idea Generator Modal
+        const aiGenModal = document.getElementById('aiIdeaGeneratorModal');
+        const aiGenOpen = document.getElementById('aiIdeaGeneratorOpen');
+        const aiGenThema = document.getElementById('aiGenThema');
+        const aiGenFormat = document.getElementById('aiGenFormat');
+        const aiGenStep1 = document.getElementById('aiGenStep1');
+        const aiGenStep2 = document.getElementById('aiGenStep2');
+        const aiGenStep3 = document.getElementById('aiGenStep3');
+        const aiGenHook = document.getElementById('aiGenHook');
+        const aiGenStory = document.getElementById('aiGenStory');
+        const aiGenAblauf = document.getElementById('aiGenAblauf');
+        const aiGenCta = document.getElementById('aiGenCta');
+        function openAiGenModal() {
+            if (aiGenModal) {
+                aiGenModal.classList.add('is-open');
+                aiGenModal.setAttribute('aria-hidden', 'false');
+                document.body.style.overflow = 'hidden';
+                aiGenStep1.hidden = false;
+                aiGenStep2.hidden = true;
+                aiGenStep3.hidden = true;
+            }
+        }
+        function closeAiGenModal() {
+            if (aiGenModal) {
+                aiGenModal.classList.remove('is-open');
+                aiGenModal.setAttribute('aria-hidden', 'true');
+                document.body.style.overflow = '';
+            }
+        }
+        aiGenOpen?.addEventListener('click', openAiGenModal);
+        aiGenModal?.querySelectorAll('[data-ai-gen-close]').forEach(el => el.addEventListener('click', closeAiGenModal));
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && aiGenModal?.classList.contains('is-open')) closeAiGenModal();
+        });
+        document.getElementById('aiGenBtnLeitfaden')?.addEventListener('click', function() {
+            var thema = (aiGenThema?.value || '').trim() || 'Video-Thema';
+            var fmt = aiGenFormat?.value || 'Format frei';
+            aiGenHook.value = 'Erster Satz oder Bild, der in 1 Sekunde Aufmerksamkeit zieht – z.B. „Der Moment, wenn …“ zu ' + thema + '.';
+            aiGenStory.value = '1. Einleitung (5–10 Sek): Kontext. 2. Hauptteil: Kernaussage oder Ablauf. 3. Wendepunkt oder Höhepunkt. 4. Auflösung.';
+            aiGenAblauf.value = 'Szene 1: Hook (0–3 Sek). Szene 2: Kontext (3–8 Sek). Szene 3: Hauptinhalt (' + fmt + '). Szene 4: CTA.';
+            aiGenCta.value = 'Folgen für mehr zu ' + thema + ' / Link in Bio.';
+            aiGenStep1.hidden = true;
+            aiGenStep2.hidden = false;
+            aiGenStep3.hidden = true;
+        });
+        document.getElementById('aiGenBtnScript')?.addEventListener('click', function() {
+            var hook = (aiGenHook?.value || '').trim() || '—';
+            var story = (aiGenStory?.value || '').trim() || '—';
+            var ablauf = (aiGenAblauf?.value || '').trim() || '—';
+            var cta = (aiGenCta?.value || '').trim() || '—';
+            document.getElementById('aiGenScriptHook').textContent = hook;
+            document.getElementById('aiGenScriptMain').textContent = story;
+            document.getElementById('aiGenScriptShots').textContent = ablauf;
+            document.getElementById('aiGenScriptCta').textContent = cta;
+            aiGenStep1.hidden = true;
+            aiGenStep2.hidden = true;
+            aiGenStep3.hidden = false;
+        });
+        document.getElementById('aiGenCopyScript')?.addEventListener('click', function() {
+            var parts = [
+                'Hook: ' + (document.getElementById('aiGenScriptHook')?.textContent || ''),
+                'Main Content: ' + (document.getElementById('aiGenScriptMain')?.textContent || ''),
+                'Shots/Szenen: ' + (document.getElementById('aiGenScriptShots')?.textContent || ''),
+                'CTA: ' + (document.getElementById('aiGenScriptCta')?.textContent || '')
+            ];
+            var text = parts.join('\n\n');
+            var btn = this;
+            function done() { btn.textContent = 'Kopiert!'; setTimeout(function() { btn.textContent = 'Script kopieren'; }, 1500); }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(done).catch(function() {
+                    var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (e) {} document.body.removeChild(ta);
+                });
+            } else {
+                var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (e) {} document.body.removeChild(ta);
+            }
+        });
+
+        // Profile
+        const profileToggle = document.getElementById('profileToggle');
+        const profileMenu = document.getElementById('profileMenu');
+        if (profileToggle && profileMenu) {
+            profileToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                profileMenu.classList.toggle('is-open');
+            });
+            document.addEventListener('click', (e) => {
+                if (!profileMenu.contains(e.target) && !profileToggle.contains(e.target)) {
+                    profileMenu.classList.remove('is-open');
+                }
+            });
+        }
+    });
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const sidebar      = document.querySelector('.sidebar');
+  const toggleBtn    = document.getElementById('sidebar-toggle');
+  const backdrop     = document.getElementById('sidebar-backdrop');
+
+  if (!sidebar || !toggleBtn || !backdrop) return;
+
+  function openSidebar() {
+    sidebar.classList.remove('sidebar--hidden');
+    backdrop.classList.add('is-visible');
+  }
+  function closeSidebar() {
+    sidebar.classList.add('sidebar--hidden');
+    backdrop.classList.remove('is-visible');
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    if (sidebar.classList.contains('sidebar--hidden')) openSidebar();
+    else closeSidebar();
+  });
+
+  backdrop.addEventListener('click', closeSidebar);
+
+  // auf Tablet/Mobile initial versteckt
+  if (window.innerWidth <= 1024) sidebar.classList.add('sidebar--hidden');
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 1024) {
+      sidebar.classList.remove('sidebar--hidden');
+      backdrop.classList.remove('is-visible');
+    }
+  });
+});
+</script>
+
+<!-- Task-Counter in Sidebar: wird von dashboard-todos.js per Event aktualisiert -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var badgeEl = document.getElementById('sidebar-task-count');
+  if (!badgeEl) return;
+  window.addEventListener('trenddash-todo-count', function(e) {
+    var n = (e.detail && e.detail.count != null) ? e.detail.count : 0;
+    badgeEl.textContent = String(n);
+    badgeEl.hidden = n === 0;
+  });
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,56 @@
+# Core ML & Data Science
+numpy==2.3.5
+pandas==2.3.3
+scipy==1.16.3
+scikit-learn==1.8.0
+matplotlib==3.10.8
+seaborn==0.13.2
+umap-learn==0.5.9.post2
+hdbscan==0.8.41
+numba==0.63.1
+llvmlite==0.46.0
+
+# Deep Learning & Transformers
+torch==2.9.1
+transformers==4.57.3
+sentence-transformers==5.2.0
+huggingface-hub==0.36.0
+tokenizers==0.22.1
+safetensors==0.7.0
+keras==3.13.0
+protobuf==5.29.5
+
+# Backend & API
+Flask==3.1.2
+Flask-Limiter==4.1.1
+Flask-SocketIO==5.5.1
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.44
+Werkzeug==3.1.4
+Jinja2==3.1.6
+itsdangerous==2.2.0
+click==8.3.1
+blinker==1.9.0
+asgiref==3.11.0
+greenlet==3.3.0
+
+# Networking & Scrapy
+requests==2.32.5
+httpx==0.28.1
+httpcore==1.0.9
+urllib3==2.6.0
+playwright==1.56.0
+TikTokApi==7.2.1
+
+# Utilities
+python-dotenv==1.1.1
+python-dateutil==2.9.0.post0
+pytz==2025.2
+tzdata==2025.2
+certifi==2025.11.12
+charset-normalizer==3.4.4
+idna==3.11
+tqdm==4.67.1
+PyYAML==6.0.3
+rich==14.2.0
+colorama==0.4.6

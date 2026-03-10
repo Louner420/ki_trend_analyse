@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dash-page dash-page--v2">
+  <div class="dash-page-header">
+    <div>
+      <h1 class="dash-page-title">Tasks</h1>
+      <p class="dash-page-subtitle">Alle Aufgaben (nächste 30 Tage)</p>
+    </div>
+  </div>
+
+  <section class="dash-card tasks-page-card">
+    <div class="tasks-page-table-wrap">
+      <div class="todo-overlay-head tasks-page-head">
+        <span class="todo-overlay-head-date">Datum</span>
+        <span class="todo-overlay-head-task">Aufgabe</span>
+        <span class="todo-overlay-head-deadline">Deadline</span>
+        <span class="todo-overlay-head-action">Aktion</span>
+      </div>
+      <div id="tasks-page-list">
+        <!-- Wird von tasks-page.js / Inline-Script befüllt -->
+        <p class="tasks-page-loading" id="tasks-page-loading">Lade Aufgaben …</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+{% include '_post_edit_modal.html' %}
+
+<script src="{{ url_for('static', filename='js/planner.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard-todos.js') }}"></script>
+<script src="{{ url_for('static', filename='js/post-edit-modal.js') }}"></script>
+<script>
+(function () {
+  function escapeHtml(s) {
+    if (s == null) return '';
+    var div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function getFullList() {
+    var getPostsNext30Days = window.TrendDashPlanner && window.TrendDashPlanner.getPostsNext30Days;
+    var computeTodos = window.TrendDashTodos && window.TrendDashTodos.computeTodos;
+    if (typeof getPostsNext30Days !== 'function' || typeof computeTodos !== 'function') return [];
+    var posts = getPostsNext30Days();
+    return computeTodos(posts);
+  }
+
+  function getDeadlineLabel(todo) {
+    if (todo.deadline == null) return '—';
+    if (todo.daysUntil == null) return '—';
+    if (todo.daysUntil < 0) return 'Überfällig';
+    if (todo.daysUntil === 0) return 'Heute';
+    if (todo.daysUntil === 1) return 'Morgen';
+    return 'In ' + todo.daysUntil + ' Tagen';
+  }
+
+  function getPriorityClass(todo) {
+    var level = window.TrendDashTodos && window.TrendDashTodos.getPriorityLevel && window.TrendDashTodos.getPriorityLevel(todo);
+    if (level === 'red') return 'todo-priority--red';
+    if (level === 'yellow') return 'todo-priority--yellow';
+    return 'todo-priority--blue';
+  }
+
+  function onAction(todo) {
+    if (todo.postId) {
+      window.dispatchEvent(new CustomEvent('trenddash-open-post-modal', { detail: { postId: todo.postId } }));
+      return;
+    }
+    window.location.href = '{{ url_for("main.planner") }}';
+  }
+
+  function render() {
+    var container = document.getElementById('tasks-page-list');
+    var loadingEl = document.getElementById('tasks-page-loading');
+    if (!container) return;
+
+    var fullList = getFullList();
+    if (fullList.length === 0) {
+      container.innerHTML = '<p class="tasks-page-empty">Keine offenen Aufgaben.</p>';
+      return;
+    }
+    if (loadingEl) loadingEl.remove();
+
+    var kritisch = fullList.filter(function (t) {
+      return t.priority === 'kritisch' || (t.daysUntil != null && t.daysUntil <= 0);
+    });
+    var dieseWoche = fullList.filter(function (t) {
+      return kritisch.indexOf(t) === -1 &&
+        ((t.priority === 'hoch' || t.priority === 'mittel') || (t.daysUntil != null && t.daysUntil >= 1 && t.daysUntil <= 7));
+    });
+    var restList = fullList.filter(function (t) {
+      return kritisch.indexOf(t) === -1 && dieseWoche.indexOf(t) === -1;
+    });
+
+    container.innerHTML = '';
+
+    function addGroup(title, list) {
+      if (list.length === 0) return;
+      var h3 = document.createElement('h3');
+      h3.className = 'todo-overlay-group-title tasks-page-group-title';
+      h3.textContent = title;
+      container.appendChild(h3);
+      list.forEach(function (todo) {
+        var row = document.createElement('div');
+        row.className = 'todo-overlay-row ' + getPriorityClass(todo);
+        var dateStr = todo.deadline
+          ? new Date(todo.deadline + 'T12:00:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
+          : '—';
+        var deadlineStr = getDeadlineLabel(todo);
+        row.innerHTML =
+          '<span class="todo-overlay-date">' + escapeHtml(dateStr) + '</span>' +
+          '<span class="todo-overlay-task">' + escapeHtml(todo.text) + '</span>' +
+          '<span class="todo-overlay-deadline">Deadline: ' + escapeHtml(deadlineStr) + '</span>' +
+          '<button type="button" class="td-button td-button--primary todo-overlay-action">Aktion</button>';
+        var btn = row.querySelector('.todo-overlay-action');
+        btn.addEventListener('click', function () { onAction(todo); });
+        row.addEventListener('click', function (e) { if (e.target !== btn) onAction(todo); });
+        container.appendChild(row);
+      });
+    }
+
+    addGroup('Kritisch (Überfällig/Heute)', kritisch);
+    addGroup('Diese Woche', dieseWoche);
+    addGroup('Nächste Wochen', restList);
+  }
+
+  function run() {
+    if (document.readyState !== 'loading') {
+      render();
+    } else {
+      document.addEventListener('DOMContentLoaded', render);
+    }
+  }
+  run();
+  window.addEventListener('trenddash-planner-updated', render);
+})();
+</script>
+{% endblock %}

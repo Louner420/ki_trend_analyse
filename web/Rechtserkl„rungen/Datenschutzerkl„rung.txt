@@ -1,0 +1,151 @@
+1. Verantwortlicher
+
+Verantwortlicher im Sinne der Datenschutz-Grundverordnung (DSGVO) ist:
+
+Andreas Niederstätter
+E-Mail: andi@gmail.at
+
+2. Allgemeine Hinweise zur Datenverarbeitung
+
+Der Schutz Ihrer personenbezogenen Daten ist uns ein besonderes Anliegen. Wir verarbeiten personenbezogene Daten ausschließlich auf Grundlage der gesetzlichen Bestimmungen, insbesondere der Datenschutz-Grundverordnung (DSGVO) sowie einschlägiger nationaler Datenschutzvorschriften.
+
+Personenbezogene Daten werden nur im erforderlichen Umfang sowie ausschließlich zu den in dieser Datenschutzerklärung genannten Zwecken verarbeitet.
+
+3. Erhebung und Verarbeitung personenbezogener Daten
+a) Server-Logfiles (Logging)
+
+Beim Aufruf dieser Website werden automatisch Informationen durch den Hosting-Provider erhoben und in sogenannten Server-Logfiles gespeichert. Erfasst werden insbesondere:
+
+IP-Adresse
+
+Datum und Uhrzeit der Anfrage
+
+aufgerufene Seite / Datei
+
+Referrer-URL
+
+verwendeter Browser und Browserversion
+
+Betriebssystem
+
+Hostname des zugreifenden Rechners
+
+Diese Daten dienen der:
+
+Gewährleistung der Systemsicherheit
+
+Fehleranalyse
+
+Missbrauchsverhinderung
+
+Sicherstellung eines störungsfreien Betriebs der Website
+
+Die Verarbeitung erfolgt auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse). Unser berechtigtes Interesse liegt in der Sicherstellung der technischen Funktionsfähigkeit und Sicherheit unseres Angebots.
+
+Die Logfiles werden für die Dauer von sechs (6) Monaten gespeichert und anschließend automatisch gelöscht, sofern keine sicherheitsrelevanten Gründe eine längere Aufbewahrung erforderlich machen.
+
+b) Registrierung / Verifizierung von Nutzern
+
+Sofern Nutzer ein Benutzerkonto anlegen oder sich verifizieren, werden folgende Daten verarbeitet:
+
+E-Mail-Adresse
+
+ggf. Benutzername
+
+Anmelde- und Nutzungsdaten
+
+Zeitpunkte der Registrierung und Anmeldung
+
+Die Verarbeitung erfolgt zum Zweck der:
+
+Identitätsverifizierung
+
+Bereitstellung eines Benutzerkontos
+
+Nutzung der angebotenen Funktionen
+
+Erstellung und Entwicklung von Trendideen
+
+Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung bzw. vorvertragliche Maßnahmen).
+
+Die Daten werden für die Dauer des Bestehens des Benutzerkontos sowie darüber hinaus für maximal sechs (6) Monate gespeichert, sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen.
+
+c) Login-Cookies
+
+Zur Bereitstellung der Login-Funktion werden technisch notwendige Cookies eingesetzt. Diese Cookies dienen:
+
+der Authentifizierung
+
+der Aufrechterhaltung einer Sitzung
+
+der Sicherstellung der Benutzerfreundlichkeit
+
+Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an der funktionsfähigen Bereitstellung des Dienstes) sowie Art. 6 Abs. 1 lit. b DSGVO.
+
+Diese Cookies sind technisch erforderlich und bedürfen keiner gesonderten Einwilligung. Sie werden nach Beendigung der Sitzung oder spätestens nach Ablauf der jeweiligen Speicherdauer automatisch gelöscht.
+
+4. Speicherdauer
+
+Personenbezogene Daten werden grundsätzlich nur so lange gespeichert, wie dies zur Erfüllung der jeweiligen Verarbeitungszwecke erforderlich ist.
+
+Sofern in dieser Datenschutzerklärung nicht anders angegeben, beträgt die Speicherdauer maximal sechs (6) Monate.
+
+Nach Ablauf der jeweiligen Fristen werden die Daten routinemäßig und entsprechend den gesetzlichen Vorschriften gelöscht oder anonymisiert.
+
+5. Rechtsgrundlagen der Verarbeitung
+
+Die Verarbeitung personenbezogener Daten erfolgt auf Grundlage von:
+
+Art. 6 Abs. 1 lit. a DSGVO (Einwilligung)
+
+Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung)
+
+Art. 6 Abs. 1 lit. c DSGVO (rechtliche Verpflichtung)
+
+Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse)
+
+Das berechtigte Interesse liegt insbesondere in:
+
+der technischen Sicherheit der Website
+
+der Verifizierung von Nutzern
+
+der Entwicklung und Erstellung von Trendideen
+
+der Missbrauchsverhinderung
+
+6. Rechte der betroffenen Personen
+
+Betroffene Personen haben nach der DSGVO folgende Rechte:
+
+Recht auf Auskunft (Art. 15 DSGVO)
+
+Recht auf Berichtigung (Art. 16 DSGVO)
+
+Recht auf Löschung („Recht auf Vergessenwerden“, Art. 17 DSGVO)
+
+Recht auf Einschränkung der Verarbeitung (Art. 18 DSGVO)
+
+Recht auf Datenübertragbarkeit (Art. 20 DSGVO)
+
+Recht auf Widerspruch gegen die Verarbeitung (Art. 21 DSGVO)
+
+Recht auf Widerruf einer erteilten Einwilligung (Art. 7 Abs. 3 DSGVO)
+
+Zur Geltendmachung Ihrer Rechte wenden Sie sich bitte an:
+
+E-Mail: andi@gmail.at
+
+7. Beschwerderecht bei der Aufsichtsbehörde
+
+Betroffene Personen haben das Recht, sich bei einer Datenschutzaufsichtsbehörde über die Verarbeitung ihrer personenbezogenen Daten zu beschweren.
+
+In Österreich ist zuständig:
+
+Österreichische Datenschutzbehörde
+Barichgasse 40–42
+1030 Wien
+
+8. Datensicherheit
+
+Es werden geeignete technische und organisatorische Maßnahmen getroffen, um personenbezogene Daten gegen Verlust, Manipulation und unbefugten Zugriff zu schützen.
