@@ -369,6 +369,7 @@
     </div>
 </div>
 
+<script src="/socket.io/socket.io.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         // Notif Panel
@@ -422,6 +423,48 @@
         const aiGenStory = document.getElementById('aiGenStory');
         const aiGenAblauf = document.getElementById('aiGenAblauf');
         const aiGenCta = document.getElementById('aiGenCta');
+        const aiGenBtnLeitfaden = document.getElementById('aiGenBtnLeitfaden');
+        const aiGenBtnScript = document.getElementById('aiGenBtnScript');
+        const aiSocket = (typeof io !== 'undefined') ? io({ transports: ['websocket', 'polling'] }) : null;
+        let aiGenBusy = false;
+
+        function parseGeneratedIdea(text) {
+            const parsed = { title: '', videoformat: '', hook: '', idee: '', drehablauf: '', cta: '' };
+            let currentKey = '';
+            const map = {
+                titel: 'title',
+                title: 'title',
+                videoformat: 'videoformat',
+                hook: 'hook',
+                idee: 'idee',
+                drehablauf: 'drehablauf',
+                cta: 'cta'
+            };
+            String(text || '').split(/\r?\n/).forEach(function(rawLine) {
+                const line = rawLine.trim();
+                if (!line) return;
+                const match = line.match(/^([A-Za-zÄÖÜäöüß\- ]+):\s*(.*)$/);
+                if (match) {
+                    const key = map[(match[1] || '').trim().toLowerCase()] || '';
+                    currentKey = key;
+                    if (currentKey) parsed[currentKey] = (match[2] || '').trim();
+                    return;
+                }
+                if (currentKey) {
+                    parsed[currentKey] = (parsed[currentKey] ? parsed[currentKey] + '\n' : '') + line;
+                }
+            });
+            return parsed;
+        }
+
+        function setAiGenLoading(isLoading, message) {
+            aiGenBusy = isLoading;
+            if (aiGenBtnLeitfaden) {
+                aiGenBtnLeitfaden.disabled = isLoading;
+                aiGenBtnLeitfaden.textContent = isLoading ? (message || 'KI generiert...') : 'Idee generieren';
+            }
+        }
+
         function openAiGenModal() {
             if (aiGenModal) {
                 aiGenModal.classList.add('is-open');
@@ -430,6 +473,13 @@
                 aiGenStep1.hidden = false;
                 aiGenStep2.hidden = true;
                 aiGenStep3.hidden = true;
+                if (aiGenThema) aiGenThema.value = '';
+                if (aiGenFormat) aiGenFormat.value = '';
+                if (aiGenHook) aiGenHook.value = '';
+                if (aiGenStory) aiGenStory.value = '';
+                if (aiGenAblauf) aiGenAblauf.value = '';
+                if (aiGenCta) aiGenCta.value = '';
+                setAiGenLoading(false);
             }
         }
         function closeAiGenModal() {
@@ -444,18 +494,40 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && aiGenModal?.classList.contains('is-open')) closeAiGenModal();
         });
-        document.getElementById('aiGenBtnLeitfaden')?.addEventListener('click', function() {
-            var thema = (aiGenThema?.value || '').trim() || 'Video-Thema';
-            var fmt = aiGenFormat?.value || 'Format frei';
-            aiGenHook.value = 'Erster Satz oder Bild, der in 1 Sekunde Aufmerksamkeit zieht – z.B. „Der Moment, wenn …“ zu ' + thema + '.';
-            aiGenStory.value = '1. Einleitung (5–10 Sek): Kontext. 2. Hauptteil: Kernaussage oder Ablauf. 3. Wendepunkt oder Höhepunkt. 4. Auflösung.';
-            aiGenAblauf.value = 'Szene 1: Hook (0–3 Sek). Szene 2: Kontext (3–8 Sek). Szene 3: Hauptinhalt (' + fmt + '). Szene 4: CTA.';
-            aiGenCta.value = 'Folgen für mehr zu ' + thema + ' / Link in Bio.';
+        aiGenBtnLeitfaden?.addEventListener('click', function() {
+            var thema = (aiGenThema?.value || '').trim();
+            var fmt = (aiGenFormat?.value || '').trim();
+            if (!thema || aiGenBusy) return;
+            if (!aiSocket) {
+                window.alert('WebSocket-Verbindung ist nicht verfügbar.');
+                return;
+            }
+            setAiGenLoading(true, 'KI generiert...');
+            aiSocket.emit('ai_generate_idea', { topic: thema, format: fmt });
+        });
+
+        aiSocket?.on('ai_generate_status', function(payload) {
+            setAiGenLoading(true, (payload && payload.message) || 'KI generiert...');
+        });
+
+        aiSocket?.on('ai_generate_error', function(payload) {
+            setAiGenLoading(false);
+            window.alert((payload && payload.error) || 'KI-Idee konnte nicht generiert werden.');
+        });
+
+        aiSocket?.on('ai_generate_result', function(payload) {
+            var parsed = parseGeneratedIdea(payload && payload.idea);
+            aiGenHook.value = parsed.hook || '—';
+            aiGenStory.value = parsed.idee || '—';
+            aiGenAblauf.value = parsed.drehablauf || '—';
+            aiGenCta.value = parsed.cta || '—';
             aiGenStep1.hidden = true;
             aiGenStep2.hidden = false;
             aiGenStep3.hidden = true;
+            setAiGenLoading(false);
         });
-        document.getElementById('aiGenBtnScript')?.addEventListener('click', function() {
+
+        aiGenBtnScript?.addEventListener('click', function() {
             var hook = (aiGenHook?.value || '').trim() || '—';
             var story = (aiGenStory?.value || '').trim() || '—';
             var ablauf = (aiGenAblauf?.value || '').trim() || '—';

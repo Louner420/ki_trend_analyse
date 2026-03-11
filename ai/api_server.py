@@ -13,10 +13,38 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 DB_DIR = os.path.join(PROJECT_ROOT, "database")
 USERS_DB_PATH = os.path.join(DB_DIR, "users.db")
-API_KEY = "sk-eea92dcb4a3e4ec0a1dcba12ddaead0a"  
+API_KEY = os.getenv("LLM_API_KEY", "")
 API_URL = "http://10.10.11.11:8080/api/chat/completions" 
 MODEL_NAME = "llama3:latest" 
+REQUIRE_LLM = os.getenv("AI_REQUIRE_LLM", "0").lower() in ("1", "true", "yes", "on")
+SPONTANEOUS_REQUIRE_LLM = os.getenv("AI_SPONTANEOUS_REQUIRE_LLM", "1").lower() in ("1", "true", "yes", "on")
 # ---------------------
+
+
+def fallback_refine_idea(original_idea, feedback, profile=None):
+    """Lokaler Fallback, falls School-LLM nicht erreichbar ist."""
+    tone = (profile or {}).get("brand_tone") or "klar"
+    return (
+        f"Titel: Überarbeitet ({tone})\n"
+        f"Videoformat: Short-Form\n"
+        f"Hook: {feedback.strip().capitalize()} – sofort in den ersten 2 Sekunden.\n"
+        f"Idee: {original_idea[:220].strip()}\n"
+        "Drehablauf: 0-2s Hook einblenden, 3-8s Kernbotschaft, 9-15s klare Demo/Proof, 16-20s Abschluss.\n"
+        "CTA: Schreib 'MEHR' in die Kommentare für die nächste Version."
+    )
+
+
+def fallback_spontaneous_idea(topic, profile=None):
+    """Lokaler Fallback für spontane Ideen."""
+    industry = (profile or {}).get("industry") or "Business"
+    return (
+        f"Titel: {industry}-Quick Idea\n"
+        "Videoformat: Talking + B-Roll\n"
+        f"Hook: Heute spontan: {topic}\n"
+        f"Idee: Zeige in 20 Sekunden, warum das für deine Zielgruppe relevant ist.\n"
+        "Drehablauf: 0-2s Hook, 3-10s Kontext, 11-17s Nutzen, 18-20s CTA.\n"
+        "CTA: Folge für mehr tägliche Kurzideen."
+    )
 
 def get_user_profile(user_id):
     """Holt den Kontext des Users aus der Datenbank für maßgeschneiderte Antworten."""
@@ -24,8 +52,8 @@ def get_user_profile(user_id):
         return None
     try:
         conn = sqlite3.connect(USERS_DB_PATH)
-        query = f"SELECT * FROM user_onboarding_profile WHERE user_id = '{user_id}'"
-        df = pd.read_sql_query(query, conn)
+        query = "SELECT * FROM user_onboarding_profile WHERE user_id = ?"
+        df = pd.read_sql_query(query, conn, params=(user_id,))
         conn.close()
         if not df.empty:
             return df.iloc[0].to_dict()
@@ -35,6 +63,8 @@ def get_user_profile(user_id):
 
 def ask_llama(prompt):
     """Schickt den Prompt live an den Schulserver."""
+    if not API_KEY:
+        return "Fehler: LLM_API_KEY ist nicht gesetzt."
     headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
     payload = {
         "model": MODEL_NAME,
@@ -76,8 +106,24 @@ def refine_idea():
     Bitte überarbeite die Idee basierend auf dem Feedback. Behalte das ursprüngliche Format (Titel, Hook, Idee, Drehablauf, CTA) bei, aber passe den Inhalt an die Wünsche an.
     """
     
+    if REQUIRE_LLM and not API_KEY:
+        return jsonify({"error": "AI_REQUIRE_LLM=1, aber LLM_API_KEY fehlt."}), 503
+
+    if not API_KEY:
+        return jsonify({
+            "refined_idea": fallback_refine_idea(original_idea, feedback, profile),
+            "source": "fallback"
+        })
+
     new_idea = ask_llama(prompt)
-    return jsonify({"refined_idea": new_idea})
+    if new_idea.startswith("Fehler bei der KI-Verbindung:"):
+        if REQUIRE_LLM:
+            return jsonify({"error": new_idea}), 502
+        return jsonify({
+            "refined_idea": fallback_refine_idea(original_idea, feedback, profile),
+            "source": "fallback"
+        })
+    return jsonify({"refined_idea": new_idea, "source": "llm"})
 
 # ==========================================
 # ENDPUNKT 2: Spontane Idee generieren
@@ -114,8 +160,18 @@ def spontaneous_idea():
     "WICHTIG: Antworte AUSSCHLIESSLICH in dem vorgegebenen Format. Nutze keine Einleitungs- oder Schlusssätze."
     """
     
+    if (REQUIRE_LLM or SPONTANEOUS_REQUIRE_LLM) and not API_KEY:
+        return jsonify({"error": "LLM_API_KEY fehlt. Spontane Ideen muessen vom Schulserver generiert werden."}), 503
+
+    if not API_KEY:
+        return jsonify({"idea": fallback_spontaneous_idea(topic, profile), "source": "fallback"})
+
     idea = ask_llama(prompt)
-    return jsonify({"idea": idea})
+    if idea.startswith("Fehler bei der KI-Verbindung:"):
+        if REQUIRE_LLM or SPONTANEOUS_REQUIRE_LLM:
+            return jsonify({"error": idea}), 502
+        return jsonify({"idea": fallback_spontaneous_idea(topic, profile), "source": "fallback"})
+    return jsonify({"idea": idea, "source": "llm"})
 
 if __name__ == '__main__':
     # Startet den Server auf Port 5000, erreichbar im ganzen Netzwerk
