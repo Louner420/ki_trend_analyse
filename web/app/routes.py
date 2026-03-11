@@ -478,7 +478,7 @@ def _trend_card_from_record(record, fallback_idx, ai_title_map=None):
     mapped_ai_title = _safe_text(ai_title_map.get(video_id)) if video_id else ""
     return {
         "idx": idx,
-        "name": mapped_ai_title or _safe_text(record.get("ai_title")) or _safe_text(record.get("caption")) or f"Trend {idx}",
+        "name": _safe_text(record.get("caption")) or mapped_ai_title or _safe_text(record.get("ai_title")) or f"Trend {idx}",
         "hype": record.get("trend_score"),
         "velocity": record.get("avg_velocity"),
         "velocity_num": float(record.get("avg_velocity") or 0),
@@ -578,7 +578,8 @@ def register_socket_events(socketio):
         emit("ai_generate_status", {"message": "KI-Idee wird am Schulserver generiert..."})
         payload = {
             "user_id": user_id,
-            "topic": f"{topic}\nGewuenschtes Format: {requested_format}" if requested_format else topic,
+            "topic": topic,
+            "requested_format": requested_format,
         }
 
         try:

@@ -86,6 +86,17 @@ def build_fallback_title(caption):
     return short[:1].upper() + short[1:]
 
 
+def build_fallback_guide(caption, product):
+    title_hint = build_fallback_title(caption)
+    return (
+        "Videoformat: Trend-Remix\n"
+        f"Hook: Starte mit '{title_hint}' in den ersten 2 Sekunden.\n"
+        f"Idee: Zeige den Trend aus dem Blickwinkel von {product}.\n"
+        "Drehablauf: 0-2s Hook, 3-8s Problem/Trend, 9-15s Produktbezug, 16-20s klarer Abschluss.\n"
+        "CTA: Stelle eine konkrete Frage, damit die Zielgruppe kommentiert."
+    )
+
+
 def generate_personalized_guide(trend_caption, user_profile):
     user_id = user_profile.get("user_id", "Unbekannt")
     print(f"🤖 [Thread] Sende personalisierte Anfrage für User {user_id}...")
@@ -159,13 +170,7 @@ CTA:
     if not API_KEY:
         sentiment_val = compute_sentiment_fallback(trend_caption)
         title = build_fallback_title(trend_caption)
-        guide = (
-            "Videoformat: Trend-Remix\n"
-            f"Hook: Starte mit dem staerksten Moment aus dem Trend und leite sofort auf {product} ueber.\n"
-            "Idee: Nutze die Mechanik des Trends und passe sie glaubwuerdig an die Marke an.\n"
-            "Drehablauf: Zeige zuerst den Hook, dann den Produktbezug, danach den konkreten Nutzen fuer die Zielgruppe.\n"
-            "CTA: Fordere die Zuschauer zu einer klaren naechsten Aktion auf."
-        )
+        guide = build_fallback_guide(trend_caption, product)
         return title, sentiment_val, guide
 
     headers = {
@@ -359,6 +364,14 @@ def sanitize_ai_ideas(ideas):
     return sanitized
 
 
+def has_low_title_diversity(ideas):
+    titles = [str((idea or {}).get("ai_title") or "").strip().lower() for idea in ideas or []]
+    titles = [title for title in titles if title]
+    if not titles:
+        return True
+    return len(set(titles)) <= 1
+
+
 def to_records(df, limit=None):
     if df.empty:
         return []
@@ -435,6 +448,16 @@ def run_agent():
         if new_videos_df.empty:
             print(f"ℹ️ User {user_id} hat bereits alle aktuellen Trends gesehen. Keine neuen Ideen generiert.")
             ai_video_ideas = sanitize_ai_ideas(load_existing_ai_ideas(json_path))
+            if has_low_title_diversity(ai_video_ideas):
+                refresh_df = ranked_df.head(MAX_IDEAS_PER_USER).copy()
+                if not refresh_df.empty:
+                    print(f"♻️ User {user_id}: bestehende Ideen zu aehnlich, regeneriere Top-{len(refresh_df)} Ideen.")
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                        results = list(executor.map(lambda caption: generate_personalized_guide(caption, user.to_dict()), refresh_df["caption"]))
+                    refresh_df["ai_title"] = [result[0] for result in results]
+                    refresh_df["ai_sentiment"] = [result[1] for result in results]
+                    refresh_df["ai_guide"] = [result[2] for result in results]
+                    ai_video_ideas = sanitize_ai_ideas(refresh_df.to_dict(orient="records"))
         else:
             print(f"\n🚀 Verarbeite {len(new_videos_df)} neue Trends fuer User {user_id} (Brand: {industry_raw})...")
             with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
@@ -457,13 +480,7 @@ def run_agent():
             fallback_df = ranked_df.head(MAX_IDEAS_PER_USER).copy()
             fallback_df["ai_title"] = fallback_df["caption"].apply(build_fallback_title)
             fallback_df["ai_sentiment"] = fallback_df["caption"].apply(compute_sentiment_fallback)
-            fallback_df["ai_guide"] = (
-                "Videoformat: Trend-Remix\n"
-                "Hook: Starte mit dem staerksten Moment aus dem Trend.\n"
-                "Idee: Passe die Trend-Mechanik an deine Marke an.\n"
-                "Drehablauf: Hook, Produktbezug, Nutzen, CTA.\n"
-                "CTA: Fordere zu einer klaren naechsten Aktion auf."
-            )
+            fallback_df["ai_guide"] = fallback_df["caption"].apply(lambda cap: build_fallback_guide(cap, user.get("product_description", "dein Produkt")))
             ai_video_ideas = sanitize_ai_ideas(fallback_df.to_dict(orient="records"))
 
         user_data = {

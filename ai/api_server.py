@@ -46,6 +46,66 @@ def fallback_spontaneous_idea(topic, profile=None):
         "CTA: Folge für mehr tägliche Kurzideen."
     )
 
+
+def ensure_spontaneous_format(raw_text, topic, requested_format=None):
+    text = str(raw_text or "").strip()
+    if not text:
+        return ""
+
+    fields = {
+        "Titel": "",
+        "Videoformat": "",
+        "Hook": "",
+        "Idee": "",
+        "Drehablauf": "",
+        "CTA": "",
+    }
+    current = None
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if ":" in line:
+            key, value = line.split(":", 1)
+            key_clean = key.strip().lower()
+            for canonical in fields:
+                if key_clean == canonical.lower():
+                    current = canonical
+                    fields[canonical] = value.strip()
+                    break
+            else:
+                if current:
+                    fields[current] = (fields[current] + " " + line).strip()
+        elif current:
+            fields[current] = (fields[current] + " " + line).strip()
+
+    expected_topic_snippet = topic.strip()[:80]
+    if not fields["Titel"]:
+        fields["Titel"] = f"Idee zu: {expected_topic_snippet}" if expected_topic_snippet else "Neue Trend-Idee"
+    if requested_format:
+        fields["Videoformat"] = requested_format
+    elif not fields["Videoformat"]:
+        fields["Videoformat"] = "Talking + B-Roll"
+    if not fields["Hook"]:
+        fields["Hook"] = f"Heute geht es konkret um: {expected_topic_snippet}" if expected_topic_snippet else "Heute gibt es eine neue Content-Idee."
+    if expected_topic_snippet and expected_topic_snippet.lower() not in fields["Hook"].lower() and expected_topic_snippet.lower() not in fields["Idee"].lower():
+        fields["Idee"] = (fields["Idee"] + f" Fokus: {expected_topic_snippet}.").strip()
+    if not fields["Idee"]:
+        fields["Idee"] = f"Erklaere den Nutzen von '{expected_topic_snippet}' fuer die Zielgruppe in einem klaren Beispiel." if expected_topic_snippet else "Erklaere den Nutzen fuer die Zielgruppe mit einem klaren Beispiel."
+    if not fields["Drehablauf"]:
+        fields["Drehablauf"] = "0-2s Hook, 3-8s Problem, 9-15s Loesung, 16-20s CTA."
+    if not fields["CTA"]:
+        fields["CTA"] = "Schreibe 'MEHR' in die Kommentare fuer die naechste Idee."
+
+    return "\n".join([
+        f"Titel: {fields['Titel']}",
+        f"Videoformat: {fields['Videoformat']}",
+        f"Hook: {fields['Hook']}",
+        f"Idee: {fields['Idee']}",
+        f"Drehablauf: {fields['Drehablauf']}",
+        f"CTA: {fields['CTA']}",
+    ])
+
 def get_user_profile(user_id):
     """Holt den Kontext des Users aus der Datenbank für maßgeschneiderte Antworten."""
     if not os.path.exists(USERS_DB_PATH):
@@ -133,6 +193,7 @@ def spontaneous_idea():
     data = request.json
     user_id = data.get('user_id')
     topic = data.get('topic') # z.B. "Wir haben heute einen neuen Pizzaofen bekommen"
+    requested_format = (data.get('requested_format') or '').strip()
 
     if not all([user_id, topic]):
         return jsonify({"error": "Fehlende Daten"}), 400
@@ -149,6 +210,13 @@ def spontaneous_idea():
     "{topic}"
     
     Mach daraus ein fertiges, kurzes TikTok-Skript.
+    Gewuenschtes Format (falls vorhanden): {requested_format or 'frei waehlbar'}
+
+    HARTE REGELN:
+    1) Nutze das Thema in Hook ODER Idee wortnah. Erfinde kein anderes Hauptthema.
+    2) Bleibe bei der Branche und dem Produktkontext des Kunden.
+    3) Keine Meta-Saetze, keine Erklaerung ausserhalb des Formats.
+    4) Wenn ein Format gewuenscht wurde, nutze genau dieses Format.
     Antworte im Format:
     Titel: ...
     Videoformat: ...
@@ -171,7 +239,12 @@ def spontaneous_idea():
         if REQUIRE_LLM or SPONTANEOUS_REQUIRE_LLM:
             return jsonify({"error": idea}), 502
         return jsonify({"idea": fallback_spontaneous_idea(topic, profile), "source": "fallback"})
-    return jsonify({"idea": idea, "source": "llm"})
+    normalized = ensure_spontaneous_format(idea, topic, requested_format)
+    if not normalized:
+        if REQUIRE_LLM or SPONTANEOUS_REQUIRE_LLM:
+            return jsonify({"error": "Leere Antwort vom LLM."}), 502
+        return jsonify({"idea": fallback_spontaneous_idea(topic, profile), "source": "fallback"})
+    return jsonify({"idea": normalized, "source": "llm"})
 
 if __name__ == '__main__':
     # Startet den Server auf Port 5000, erreichbar im ganzen Netzwerk
