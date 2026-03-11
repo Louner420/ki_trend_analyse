@@ -25,11 +25,12 @@ def filter_trends_by_niche(df, niche_key):
     if not keywords:
         return pd.DataFrame()
 
-    captions = df.get("caption", pd.Series([""] * len(df))).fillna("").astype(str)
-    hashtags = df.get("hashtags", pd.Series([""] * len(df))).fillna("").astype(str)
+    captions = df["caption"].fillna("").astype(str) if "caption" in df.columns else pd.Series([""] * len(df), index=df.index)
+    hashtags = df["hashtags"].fillna("").astype(str) if "hashtags" in df.columns else pd.Series([""] * len(df), index=df.index)
     search_text = (captions + " " + hashtags).str.lower()
     pattern = "|".join([k.lower() for k in keywords])
-    return df[search_text.str.contains(pattern, na=False, regex=True)].copy()
+    mask = search_text.str.contains(pattern, na=False, regex=True)
+    return df.loc[mask].copy()
 
 def run_ai_loop():
     print("[AI-Daemon] Starte KI-Service...")

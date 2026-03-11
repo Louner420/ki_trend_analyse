@@ -26,6 +26,7 @@ logs/
 *.log
 logs.db
 error.db
+*.db-journal
 
 # Old root-level duplicates (canonical code is in ai/ and web/)
 /check_profi_stats.py

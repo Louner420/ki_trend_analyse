@@ -463,6 +463,69 @@ def _build_ai_idea_payload(record, fallback_id):
     }
 
 
+HDBSCAN_NICHES = ["general", "gastro", "fitness", "tech", "fashion", "business"]
+
+def _load_hdbscan_trends(niche="general"):
+    """Lade HDBSCAN-Cluster-Ergebnisse aus trend_results.db für eine Nische."""
+    if niche not in HDBSCAN_NICHES:
+        niche = "general"
+    table = f"top10_{niche}"
+    db_path = os.path.join(BASE_DIR, "trend_results.db")
+    if not os.path.exists(db_path):
+        return []
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            f"SELECT rank, caption, trend_score, lifecycle_phase, "
+            f"avg_velocity, cluster_size, niche_relevance, updated_at "
+            f"FROM [{table}] ORDER BY rank"
+        ).fetchall()
+        conn.close()
+    except Exception:
+        return []
+    cards = []
+    for row in rows:
+        velocity_val = float(row["avg_velocity"] or 0)
+        engagement_val = float(row["niche_relevance"] or 0)
+        cards.append({
+            "idx": int(row["rank"]),
+            "name": _short_text(row["caption"], 120) or f"Trend {row['rank']}",
+            "hype": float(row["trend_score"]) if row["trend_score"] else 0,
+            "velocity": velocity_val,
+            "velocity_num": velocity_val,
+            "engagement": round(engagement_val * 100, 1) if engagement_val < 1 else round(engagement_val, 1),
+            "engagement_num": round(engagement_val * 100, 1) if engagement_val < 1 else round(engagement_val, 1),
+            "sentiment": "—",
+            "lifecycle": _safe_text(row["lifecycle_phase"]),
+            "cluster_size": int(row["cluster_size"] or 0),
+            "updated_at": row["updated_at"],
+            "opp_num": (velocity_val / 1000.0) + engagement_val,
+        })
+    return cards
+
+
+def _build_hdbscan_sections(cards):
+    """Baut trend_sections aus HDBSCAN-Karten auf."""
+    if not cards:
+        return None
+    top_by_hype = sorted(cards, key=lambda c: c["hype"], reverse=True)
+    rising = sorted(cards, key=lambda c: c["velocity_num"], reverse=True)
+    opportunities = sorted(cards, key=lambda c: c["opp_num"], reverse=True)
+    # Lifecycle-basierte Auswahl
+    emerging = [c for c in cards if "EMERGING" in (c.get("lifecycle") or "")]
+    peaking = [c for c in cards if "PEAKING" in (c.get("lifecycle") or "")]
+    return {
+        "top_trends": top_by_hype[:4],
+        "rising_trends": rising[:4],
+        "opportunities": opportunities[:4],
+        "global_trends": top_by_hype[4:8],
+        "details": top_by_hype,
+        "emerging": emerging,
+        "peaking": peaking,
+    }
+
+
 def _build_ai_ideas(payload):
     records = []
     if isinstance(payload, dict):
@@ -942,237 +1005,51 @@ def trends():
         return redirect(url_for("main.login"))
     if not session.get("onboarding_done", True):
         return redirect(url_for("main.onboarding"))
+
+    # Nische aus Query-Parameter (Default: general)
+    niche = request.args.get("niche", "general").lower().strip()
+    if niche not in HDBSCAN_NICHES:
+        niche = "general"
+
+    # 1) HDBSCAN-Daten laden (Hauptquelle)
+    hdbscan_cards = _load_hdbscan_trends(niche)
+    hdbscan_sections = _build_hdbscan_sections(hdbscan_cards)
+
+    # 2) User-spezifische AI-Ideen aus JSON
     user_trends_payload = _load_user_trends_payload()
-    try:
-        Cap(1)
-    except Exception:
-        result, raw, themas, engaments = _empty_index_data()
-        trend_sections = _build_trend_sections(user_trends_payload, result, raw, engaments)
-        ai_ideas = _build_ai_ideas(user_trends_payload)
-        return render_template("trends.html", title="Trends Explorer",
-            result=result, raw=raw, themas=themas, engaments=engaments, avg_velocity10=0,
-            trend_sections=trend_sections, ai_ideas=ai_ideas)
-    result={
-        "Caption1": Cap(1),
-        "Trend_Score1": trend(1),
-        "Relevance1": rel(1),
-        "Updated At1": update(1),
-        "Niche_Relevance1": nich(1),
-        "Cluster_Size1": clus(1),
-        "Avg_Velocity1": avgvel(1),
-        "Caption2": Cap(2),
-        "Trend_Score2": trend(2),
-        "Relevance2": rel(2),
-        "Updated_At2": update(2),       
-        "Niche_Relevance2": nich(2),
-        "Cluster_Size2": clus(2),
-        "Avg_Velocity2": avgvel(2),
-        "Caption3": Cap(3),
-        "Trend_Score3": trend(3),
-        "Relevance3": rel(3),
-        "Updated_At3": update(3),
-        "Niche_Relevance3": nich(3),
-        "Cluster_Size3": clus(3),
-        "Avg_Velocity3": avgvel(3),
-        "Caption4": Cap(4),
-        "Trend_Score4": trend(4),
-        "Relevance4": rel(4),
-        "Updated_At4": update(4),
-        "Niche_Relevance4": nich(4),
-        "Cluster_Size4": clus(4),
-        "Avg_Velocity4": avgvel(4),
-        "Caption5": Cap(5),
-        "Trend_Score5": trend(5),
-        "Relevance5": rel(5),
-        "Updated_At5": update(5),
-        "Niche_Relevance5": nich(5),
-        "Cluster_Size5": clus(5),
-        "Avg_Velocity5": avgvel(5),
-        "Caption6": Cap(6),
-        "Trend_Score6": trend(6),
-        "Relevance6": rel(6),
-        "Updated_At6": update(6),
-        "Niche_Relevance6": nich(6),
-        "Cluster_Size6": clus(6),
-        "Avg_Velocity6": avgvel(6),
-        "Caption7": Cap(7),
-        "Trend_Score7": trend(7),
-        "Relevance7": rel(7),
-        "Updated_At7": update(7),
-        "Niche_Relevance7": nich(7),
-        "Cluster_Size7": clus(7),
-        "Avg_Velocity7": avgvel(7),
-        "Caption8": Cap(8),
-        "Trend_Score8": trend(8),
-        "Relevance8": rel(8),
-        "Updated_At8": update(8),
-        "Niche_Relevance8": nich(8),
-        "Cluster_Size8": clus(8),
-        "Avg_Velocity8": avgvel(8),
-        "Caption9": Cap(9),
-        "Trend_Score9": trend(9),
-        "Relevance9": rel(9),
-        "Updated_At9": update(9),
-        "Niche_Relevance9": nich(9),
-        "Cluster_Size9": clus(9),
-        "Avg_Velocity9": avgvel(9),
-        "Caption10": Cap(10),
-        "Trend_Score10": trend(10),
-        "Relevance10": rel(10),
-        "Updated_At10": update(10),
-        "Niche_Relevance10": nich(10),
-        "Cluster_Size10": clus(10),
-        "Avg_Velocity10": avgvel(10)
-    }
-    raw={
-        "Caption_raw1": Cap_raw(1),
-        "Hashtags1": hashtag(1),
-        "Views1": view(1),
-        "Likes1": like(1),
-        "Comments1": comment(1),
-        "Shares1": share(1),
-        "Trend_Score_raw1": trend_raw(1),
-        "Velocity1": velocity(1),
-        "Sentiment1": sentiment(1),
-        "Creator1": creator(1),
-        "Upload Date1": upload(1),
-        "Caption_raw2": Cap_raw(2),
-        "Hashtags2": hashtag(2),
-        "Views2": view(2),
-        "Likes2": like(2),
-        "Comments2": comment(2),
-        "Shares2": share(2),
-        "Trend_Score_raw2": trend_raw(2),
-        "Velocity2": velocity(2),
-        "Sentiment2": sentiment(2),
-        "Creator2": creator(2),
-        "Upload Date2": upload(2),
-        "Caption_raw3": Cap_raw(3),
-        "Hashtags3": hashtag(3),
-        "Views3": view(3),
-        "Likes3": like(3),
-        "Comments3": comment(3),
-        "Shares3": share(3),
-        "Trend_Score_raw3": trend_raw(3),
-        "Velocity3": velocity(3),
-        "Sentiment3": sentiment(3),
-        "Creator3": creator(3),
-        "Upload Date3": upload(3),
-        "Caption_raw4": Cap_raw(4),
-        "Hashtags4": hashtag(4),
-        "Views4": view(4),
-        "Likes4": like(4),
-        "Comments4": comment(4),
-        "Shares4": share(4),
-        "Trend_Score_raw4": trend_raw(4),
-        "Velocity4": velocity(4),
-        "Sentiment4": sentiment(4),
-        "Creator4": creator(4),
-        "Upload Date4": upload(4),
-        "Caption_raw5": Cap_raw(5),
-        "Hashtags5": hashtag(5),
-        "Views5": view(5),
-        "Likes5": like(5),
-        "Comments5": comment(5),
-        "Shares5": share(5),
-        "Trend_Score_raw5": trend_raw(5),
-        "Velocity5": velocity(5),
-        "Sentiment5": sentiment(5),
-        "Creator5": creator(5),
-        "Upload_Date5": upload(5),
-        "Caption_raw6": Cap_raw(6),
-        "Hashtags6": hashtag(6),
-        "Views6": view(6),
-        "Likes6": like(6),
-        "Comments6": comment(6),
-        "Shares6": share(6),
-        "Trend_Score_raw6": trend_raw(6),
-        "Velocity6": velocity(6),
-        "Sentiment6": sentiment(6),
-        "Creator6": creator(6),
-        "Upload_Date6": upload(6),
-        "Caption_raw7": Cap_raw(7),
-        "Hashtags7": hashtag(7),
-        "Views7": view(7),
-        "Likes7": like(7),
-        "Comments7": comment(7),
-        "Shares7": share(7),
-        "Trend_Score_raw7": trend_raw(7),
-        "Velocity7": velocity(7),
-        "Sentiment7": sentiment(7),
-        "Creator7": creator(7),
-        "Upload_Date7": upload(7),
-        "Caption_raw8": Cap_raw(8),
-        "Hashtags8": hashtag(8),
-        "Views8": view(8),
-        "Likes8": like(8),
-        "Comments8": comment(8),
-        "Shares8": share(8),
-        "Trend_Score_raw8": trend_raw(8),
-        "Velocity8": velocity(8),
-        "Sentiment8": sentiment(8),
-        "Creator8": creator(8),
-        "Upload_Date8": upload(8),
-        "Caption_raw9": Cap_raw(9),
-        "Hashtags9": hashtag(9),
-        "Views9": view(9),
-        "Likes9": like(9),
-        "Comments9": comment(9),
-        "Shares9": share(9),
-        "Trend_Score_raw9": trend_raw(9),
-        "Velocity9": velocity(9),
-        "Sentiment9": sentiment(9),
-        "Creator9": creator(9),
-        "Upload_Date9": upload(9),
-        "Caption_raw10": Cap_raw(10),
-        "Hashtags10": hashtag(10),
-        "Views10": view(10),
-        "Likes10": like(10),
-        "Comments10": comment(10),
-        "Shares10": share(10),
-        "Trend_Score_raw10": trend_raw(10),
-        "Velocity10": velocity(10),
-        "Sentiment10": sentiment(10),   
-        "Creator10": creator(10),
-        "Upload_Date10": upload(10)
-    }
-    themas={
-        "Thema1": thema(1),
-        "Thema2": thema(2),
-        "Thema3": thema(3),
-        "Thema4": thema(4),
-        "Thema5": thema(5),
-        "Thema6": thema(6),
-        "Thema7": thema(7),
-        "Thema8": thema(8),
-        "Thema9": thema(9),
-        "Thema10": thema(10)
-    }
-    engaments={
-        "Engament1": engament(1),
-        "Engament2": engament(2),
-        "Engament3": engament(3),
-        "Engament4": engament(4),
-        "Engament5": engament(5),
-        "Engament6": engament(6),
-        "Engament7": engament(7),
-        "Engament8": engament(8),
-        "Engament9": engament(9),
-        "Engament10": engament(10)
-    }
-    avg_velocity10=avgvel(1)+avgvel(2)+avgvel(3)+avgvel(4)+avgvel(5)+avgvel(6)+avgvel(7)+avgvel(8)+avgvel(9)+avgvel(10)
-    avg_velocity10=avg_velocity10/10
-    avg_velocity10=round(avg_velocity10,2)
-    trend_sections = _build_trend_sections(user_trends_payload, result, raw, engaments)
     ai_ideas = _build_ai_ideas(user_trends_payload)
+
+    # 3) Fallback: Legacy-Daten falls HDBSCAN leer
+    if hdbscan_sections:
+        trend_sections = hdbscan_sections
+    else:
+        try:
+            Cap(1)
+            result, raw, themas, engaments = _empty_index_data()
+            for i in range(1, 11):
+                result[f"Caption{i}"] = Cap(i)
+                result[f"Trend_Score{i}"] = trend(i)
+                result[f"Avg_Velocity{i}"] = avgvel(i)
+            trend_sections = _build_trend_sections(user_trends_payload, result, raw, engaments)
+        except Exception:
+            result, raw, themas, engaments = _empty_index_data()
+            trend_sections = _build_trend_sections(user_trends_payload, result, raw, engaments)
+
+    # Durchschnitts-Velocity
+    avg_velocity10 = 0
+    details = trend_sections.get("details", [])
+    if details:
+        vel_sum = sum(float(c.get("velocity_num") or 0) for c in details)
+        avg_velocity10 = round(vel_sum / len(details), 2)
+
     return render_template("trends.html", title="Trends Explorer",
-        result=result,
-        raw=raw,
-        themas=themas,
-        engaments=engaments,
-        avg_velocity10=avg_velocity10,
         trend_sections=trend_sections,
-        ai_ideas=ai_ideas
+        ai_ideas=ai_ideas,
+        avg_velocity10=avg_velocity10,
+        active_niche=niche,
+        niches=HDBSCAN_NICHES,
+        hdbscan_active=bool(hdbscan_sections),
+        updated_at=hdbscan_cards[0]["updated_at"] if hdbscan_cards else None,
     )
 
 

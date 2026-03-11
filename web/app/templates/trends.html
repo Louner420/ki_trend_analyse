@@ -4,15 +4,31 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ai_ideas.css') }}">
 <div class="dash-page dash-page--v2 trends-page">
 
-  <!-- SECTION 1 — Header -->
+  <!-- SECTION 1 — Header + Nischen-Tabs -->
   <div class="dash-page-header">
     <div>
       <h1 class="dash-page-title">Trend Analyse</h1>
       <p class="dash-page-subtitle">
-        Übersicht über aktuelle Trends in deiner Nische basierend auf Hype-Index, Velocity, Engagement und Sentiment.
+        {% if hdbscan_active %}
+          HDBSCAN-Clustering — {{ (trend_sections.details|length) if trend_sections else 0 }} Trends erkannt
+          {% if updated_at %}<span class="trends-updated">· Aktualisiert {{ updated_at[:16]|replace('T', ' ') }}</span>{% endif %}
+        {% else %}
+          Übersicht über aktuelle Trends in deiner Nische basierend auf Hype-Index, Velocity, Engagement und Sentiment.
+        {% endif %}
       </p>
     </div>
   </div>
+
+  <!-- Nischen-Tabs -->
+  {% set niche_labels = {'general': '🌍 Alle', 'gastro': '🍕 Gastro', 'fitness': '💪 Fitness', 'tech': '💻 Tech', 'fashion': '👗 Fashion', 'business': '💼 Business'} %}
+  <nav class="niche-tabs" aria-label="Nischen-Auswahl">
+    {% for n in niches %}
+      <a href="{{ url_for('main.trends', niche=n) }}"
+         class="niche-tab{% if n == active_niche %} niche-tab--active{% endif %}">
+        {{ niche_labels.get(n, n|capitalize) }}
+      </a>
+    {% endfor %}
+  </nav>
   {% set top_four_hype = trend_sections.top_trends if trend_sections else [] %}
   {% set top_four_rising = trend_sections.rising_trends if trend_sections else [] %}
   {% set top_four_opp = trend_sections.opportunities if trend_sections else [] %}
@@ -30,8 +46,8 @@
   <!-- SECTION 2 — Top Trends (max 4, klickbar) -->
   <section class="dash-card trends-section">
     <div class="card-header">
-      <h2 class="section-title">🔥 Top Trends deiner Nische</h2>
-      <p class="section-subtitle">Die wichtigsten Trends – sortiert nach Hype-Index.</p>
+      <h2 class="section-title">🔥 Top Trends{% if active_niche != 'general' %} – {{ niche_labels.get(active_niche, active_niche|capitalize) }}{% endif %}</h2>
+      <p class="section-subtitle">Die wichtigsten Trends – sortiert nach Hype-Index (HDBSCAN+UMAP Clustering).</p>
     </div>
     <div class="trend-card-grid trend-card-grid--large">
       {% for t in top_four_hype %}
@@ -49,7 +65,7 @@
             <div class="trend-card-row"><span class="trend-card-label">Hype-Index</span><span class="trend-card-value">{{ (t.hype|default(0)|float)|round(1) if t.hype is not none else '—' }}</span></div>
             <div class="trend-card-row"><span class="trend-card-label">Velocity</span><span class="trend-card-value">{{ fmt_velocity(t.velocity) }}</span></div>
             <div class="trend-card-row"><span class="trend-card-label">Engagement</span><span class="trend-card-value">{{ fmt_engagement(t.engagement) }}</span></div>
-            <div class="trend-card-row"><span class="trend-card-label">Sentiment</span><span class="trend-card-value">{% if t.sentiment is not none and t.sentiment != '—' %}{{ t.sentiment }}/100{% else %}—{% endif %}</span></div>
+            {% if t.cluster_size %}<div class="trend-card-row"><span class="trend-card-label">Cluster</span><span class="trend-card-value">{{ t.cluster_size }} Videos</span></div>{% endif %}
           </div>
         </button>
       {% endfor %}
@@ -77,7 +93,7 @@
             <div class="trend-card-row"><span class="trend-card-label">Velocity</span><span class="trend-card-value">{{ fmt_velocity(t.velocity) }}</span></div>
             <div class="trend-card-row"><span class="trend-card-label">Hype-Index</span><span class="trend-card-value">{{ (t.hype|default(0)|float)|round(1) if t.hype is not none else '—' }}</span></div>
             <div class="trend-card-row"><span class="trend-card-label">Engagement</span><span class="trend-card-value">{{ fmt_engagement(t.engagement) }}</span></div>
-            <div class="trend-card-row"><span class="trend-card-label">Sentiment</span><span class="trend-card-value">{% if t.sentiment is not none and t.sentiment != '—' %}{{ t.sentiment }}/100{% else %}—{% endif %}</span></div>
+            {% if t.cluster_size %}<div class="trend-card-row"><span class="trend-card-label">Cluster</span><span class="trend-card-value">{{ t.cluster_size }} Videos</span></div>{% endif %}
           </div>
         </button>
       {% endfor %}
@@ -106,7 +122,7 @@
             <div class="trend-card-row"><span class="trend-card-label">Hype-Index</span><span class="trend-card-value">{{ (t.hype|default(0)|float)|round(1) if t.hype is not none else '—' }}</span></div>
             <div class="trend-card-row"><span class="trend-card-label">Velocity</span><span class="trend-card-value">{{ fmt_velocity(t.velocity) }}</span></div>
             <div class="trend-card-row"><span class="trend-card-label">Engagement</span><span class="trend-card-value">{{ fmt_engagement(t.engagement) }}</span></div>
-            <div class="trend-card-row"><span class="trend-card-label">Sentiment</span><span class="trend-card-value">{% if t.sentiment is not none and t.sentiment != '—' %}{{ t.sentiment }}/100{% else %}—{% endif %}</span></div>
+            {% if t.cluster_size %}<div class="trend-card-row"><span class="trend-card-label">Cluster</span><span class="trend-card-value">{{ t.cluster_size }} Videos</span></div>{% endif %}
           </div>
         </button>
       {% endfor %}
@@ -271,7 +287,8 @@
       '<div class="trend-detail-row"><span>Hype-Index</span><strong>' + (t.hype != null ? parseFloat(t.hype).toFixed(1) : '—') + '</strong></div>' +
       '<div class="trend-detail-row"><span>Velocity</span><strong>' + fmtVel(t.velocity) + '</strong></div>' +
       '<div class="trend-detail-row"><span>Engagement</span><strong>' + fmtEng(t.engagement) + '</strong></div>' +
-      '<div class="trend-detail-row"><span>Sentiment</span><strong>' + (t.sentiment || '—') + '</strong></div>';
+      '<div class="trend-detail-row"><span>Lifecycle</span><strong>' + (t.lifecycle || '—') + '</strong></div>' +
+      '<div class="trend-detail-row"><span>Cluster-Größe</span><strong>' + (t.cluster_size || 0) + ' Videos</strong></div>';
     var v = (t.velocity_num || 0), e = (t.engagement != null ? parseFloat(t.engagement) : 0);
     var oppText = v >= 10000 && e >= 30 ? '🟢 Hohe Opportunity' : (v >= 1000 || e >= 15) ? '🟡 Mittlere Opportunity' : '⚪ Niedrige Opportunity';
     oppEl.textContent = 'Trend Opportunity: ' + oppText;
