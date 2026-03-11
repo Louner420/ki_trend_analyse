@@ -16,9 +16,9 @@ echo "[$(date)] Wöchentliches Refresh gestartet" >> "$LOG"
 echo "[$(date)] Schritt 1: Cleanup alte Videos..." >> "$LOG"
 $VENV "$PROJ/ai/cleanup.py" >> "$LOG" 2>&1 || echo "[WARN] cleanup.py fehlgeschlagen" >> "$LOG"
 
-# 2. Trend-Cluster + User-JSONs neu generieren
-echo "[$(date)] Schritt 2: Content Agent (Trend-Clustering + AI-Ideen)..." >> "$LOG"
-$VENV "$PROJ/content_agent.py" >> "$LOG" 2>&1 || echo "[WARN] content_agent.py fehlgeschlagen" >> "$LOG"
+# 2. Trend-Cluster + User-JSONs via Schulserver (Heavy-AI + LLM)
+echo "[$(date)] Schritt 2: Sync mit Schulserver (HDBSCAN + Content Agent)..." >> "$LOG"
+bash "$PROJ/ai/run_sync.sh" >> "$LOG" 2>&1 || echo "[WARN] run_sync.sh fehlgeschlagen" >> "$LOG"
 
 # 3. Log-DBs bereinigen (>30 Tage loeschen)
 echo "[$(date)] Schritt 3: Log-DBs bereinigen..." >> "$LOG"

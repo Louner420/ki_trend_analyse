@@ -3,8 +3,8 @@ import pandas as pd
 import os
 
 # Pfad zur DB (Monorepo-Struktur)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PROJECT_ROOT = os.path.dirname(BASE_DIR)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))          # .../projects/ai
+PROJECT_ROOT = os.path.dirname(BASE_DIR)                       # .../projects
 DB_DIR = os.path.join(PROJECT_ROOT, "database")
 db_path = os.path.join(DB_DIR, 'raw_tiktok.db')
 

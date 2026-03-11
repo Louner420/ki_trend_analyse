@@ -12,6 +12,7 @@ database/trends_user_*.json
 
 # VPN / Secrets
 *.ovpn
+auth.txt
 
 # OS / IDE artifacts
 __MACOSX/
