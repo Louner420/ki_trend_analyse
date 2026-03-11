@@ -34,7 +34,6 @@ def filter_trends_by_niche(df, niche_key):
 def run_ai_loop():
     print("[AI-Daemon] Starte KI-Service...")
     init_dbs() # Datenbank-Struktur sicherstellen
-    run_once = os.getenv("AI_RUN_ONCE", "0") == "1"
     
     analyzer = SocialTrendAnalyzer()
     
@@ -91,9 +90,6 @@ def run_ai_loop():
             
             if scored_trends.empty:
                 print("[AI] Keine Cluster gefunden.")
-                if run_once:
-                    print("[AI] Einmalmodus aktiv. Beende ohne Wartezeit.")
-                    break
                 time.sleep(60)
                 continue
 
@@ -119,15 +115,7 @@ def run_ai_loop():
             print(f"[AI Critical Error] {e}")
             import traceback
             traceback.print_exc()
-
-            if run_once:
-                print("[AI] Einmalmodus aktiv. Beende nach Fehler ohne Wartezeit.")
-                break
         
-        if run_once:
-            print("[AI] Einmalmodus aktiv. Zyklus abgeschlossen, beende jetzt.")
-            break
-
         print("[AI] Zyklus beendet. Schlafe 5 Minuten...")
         time.sleep(300) 
 

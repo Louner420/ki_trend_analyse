@@ -25,9 +25,6 @@ class TrendScorer:
         Fasst die vielen Videos eines Clusters zu einem einzigen "Trend-Datensatz" zusammen.
         """
         # Rauschen (-1) herausfiltern
-        if 'cluster_id' not in df_clustered.columns:
-            return pd.DataFrame()
-            
         df_clean = df_clustered[df_clustered['cluster_id'] != -1].copy()
         
         if df_clean.empty:
@@ -36,8 +33,6 @@ class TrendScorer:
         # --- FIX: Creator Spalte sicherstellen ---
         if 'creator' not in df_clean.columns:
             df_clean['creator'] = 'unknown'
-        if 'hashtags' not in df_clean.columns:
-            df_clean['hashtags'] = ''
 
         # Aggregations-Regeln definieren
         agg_rules = {
@@ -48,9 +43,7 @@ class TrendScorer:
             # Nimm den häufigsten Creator im Cluster als Repräsentant
             'creator': lambda x: x.mode()[0] if not x.mode().empty else "unknown",
             # Nimm die längste Caption als Repräsentant (oft informativer)
-            'caption': lambda x: max(x.astype(str), key=len) if not x.empty else "",
-            # --- NEU: Hashtags retten (Nimm die längste Sammlung) ---
-            'hashtags': lambda x: max(x.fillna("").astype(str), key=len) if not x.empty else ""
+            'caption': lambda x: max(x, key=len) if not x.empty else ""
         }
         
         # Gruppieren
@@ -64,6 +57,9 @@ class TrendScorer:
             'age_hours': 'avg_age_hours'
         })
         
+        # Generate a unique video_id for each cluster trend (needed for content_agent)
+        cluster_stats['video_id'] = [f"trend_{i}" for i in range(len(cluster_stats))]
+        
         return cluster_stats
 
     def calculate_scores(self, cluster_stats):
@@ -76,20 +72,23 @@ class TrendScorer:
         df = cluster_stats.copy()
 
         # Logarithmische Skalierung für Größe und Velocity
+        # (Damit riesige Ausreißer nicht die Skala sprengen)
         df['log_size'] = np.log1p(df['cluster_size'])
         df['log_velocity'] = np.log1p(df['avg_velocity'])
 
         # Features normalisieren (auf 0-1 bringen)
         features = ['log_size', 'log_velocity', 'avg_engagement', 'avg_age_hours']
         
+        # Sicherheitshalber prüfen, ob genug Varianz da ist
         try:
             scaled = self.scaler.fit_transform(df[features])
             df_norm = pd.DataFrame(scaled, columns=features, index=df.index)
         except ValueError:
-            # Falls zu wenig Daten für Scaling da sind
+            # Falls zu wenig Daten für Scaling da sind, einfach alles auf 0.5 setzen
             df_norm = pd.DataFrame(0.5, columns=features, index=df.index)
 
         # Score berechnen (Gewichtete Summe)
+        # Recency wird invertiert (kleineres Alter = besser)
         score = (
             self.weights['volume'] * df_norm['log_size'] +
             self.weights['velocity'] * df_norm['log_velocity'] +
@@ -108,6 +107,7 @@ class TrendScorer:
         """
         if df_scored.empty: return df_scored
 
+        # Berechne Mediane des aktuellen Batches für relative Einordnung
         median_vel = df_scored['avg_velocity'].median()
         median_size = df_scored['cluster_size'].median()
         
@@ -115,9 +115,19 @@ class TrendScorer:
             is_fast = row['avg_velocity'] > median_vel
             is_big = row['cluster_size'] > median_size
             
-            if is_fast and not is_big: return "EMERGING 🚀"
-            if is_fast and is_big: return "PEAKING 🔥"
-            if not is_fast and is_big: return "STAGNANT 📉"
+            # Klein aber schnell = Emerging (Das Gold Nugget!)
+            if is_fast and not is_big:
+                return "EMERGING 🚀"
+            
+            # Groß und schnell = Peaking (Mainstream)
+            if is_fast and is_big:
+                return "PEAKING 🔥"
+                
+            # Groß aber langsam = Stagnant (Vorbei)
+            if not is_fast and is_big:
+                return "STAGNANT 📉"
+                
+            # Klein und langsam = Noise (Unwichtig)
             return "NICHE / NOISE 💤"
 
         df_scored['lifecycle_phase'] = df_scored.apply(get_phase, axis=1)

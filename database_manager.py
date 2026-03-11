@@ -3,13 +3,35 @@ import os
 import pandas as pd
 from datetime import datetime, timedelta
 
-# Pfad zum Daten-Ordner
+# Pfad zum Daten-Ordner (Monorepo-Struktur)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
-os.makedirs(DATA_DIR, exist_ok=True)
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
+
+
+def _db_dir_candidates():
+    if os.path.basename(BASE_DIR) == "ai":
+        return [os.path.join(PROJECT_ROOT, "database"), os.path.join(BASE_DIR, "data")]
+
+    return [os.path.join(BASE_DIR, "data"), os.path.join(PROJECT_ROOT, "database")]
+
+
+def _select_db_dir(db_filename=None):
+    candidates = _db_dir_candidates()
+    for directory in candidates:
+        if os.path.isdir(directory):
+            return directory
+
+    fallback_dir = candidates[0]
+    os.makedirs(fallback_dir, exist_ok=True)
+    return fallback_dir
+
+
+DB_DIR = _select_db_dir()
 
 def get_db_path(db_filename):
-    return os.path.join(DATA_DIR, db_filename)
+    db_dir = _select_db_dir(db_filename)
+    os.makedirs(db_dir, exist_ok=True)
+    return os.path.join(db_dir, db_filename)
 
 # ==========================================
 # 1. HAUPTFUNKTIONEN
@@ -18,6 +40,7 @@ def get_db_path(db_filename):
 def save_to_db(data_list, db_filename, table_name):
     """
     Speichert Daten (vom Scraper) in die DB.
+    Nutzt intelligente Upsert-Logik und automatische Tabellen-Erweiterung (Schema Evolution).
     """
     if not data_list:
         return
@@ -29,7 +52,7 @@ def save_to_db(data_list, db_filename, table_name):
     first_item = data_list[0]
     columns = list(first_item.keys())
     
-    # Tabelle erstellen
+    # 1. Tabelle erstellen (falls sie noch gar nicht existiert)
     create_cols = []
     for col in columns:
         if col == "video_id":
@@ -40,18 +63,64 @@ def save_to_db(data_list, db_filename, table_name):
     create_query = f"CREATE TABLE IF NOT EXISTS {table_name} ({', '.join(create_cols)})"
     c.execute(create_query)
 
-    placeholders = ", ".join(["?"] * len(columns))
-    col_names = ", ".join(columns)
-    insert_query = f"INSERT OR IGNORE INTO {table_name} ({col_names}) VALUES ({placeholders})"
+    # 2. Prüfen, ob neue Spalten (wie 'shares') dazu gekommen sind und vollautomatisch hinzufügen!
+    c.execute(f"PRAGMA table_info({table_name})")
+    existing_cols = [row[1] for row in c.fetchall()]
+    
+    for col in columns:
+        if col not in existing_cols:
+            try:
+                c.execute(f"ALTER TABLE {table_name} ADD COLUMN {col} TEXT")
+                print(f"[DB-Manager] 🆕 Neue Spalte '{col}' zur Tabelle hinzugefügt.")
+            except Exception as e:
+                pass
+
+    neu_count = 0
+    update_count = 0
 
     for item in data_list:
-        values = [str(item.get(col, "")) for col in columns]
-        try:
-            c.execute(insert_query, values)
-        except: pass
+        creator = str(item.get('creator', ''))
+        caption = str(item.get('caption', ''))
+        
+        # 3. Prüfen, ob das Video (Creator + Caption) schon existiert
+        c.execute(f"SELECT video_id FROM {table_name} WHERE creator = ? AND caption = ?", (creator, caption))
+        existiert = c.fetchone()
+
+        if existiert:
+            # 4a. UPDATE: Dynamischen Update-Befehl bauen
+            update_cols = []
+            update_values = []
+            for col in columns:
+                if col not in ['creator', 'caption']: # Diese zwei als Suchkriterien auslassen
+                    update_cols.append(f"{col} = ?")
+                    update_values.append(str(item.get(col, "")))
+            
+            # Suchkriterien ans Ende der Werte-Liste hängen
+            update_values.extend([creator, caption])
+            
+            update_query = f"UPDATE {table_name} SET {', '.join(update_cols)} WHERE creator = ? AND caption = ?"
+            
+            try:
+                c.execute(update_query, update_values)
+                update_count += 1
+            except Exception as e:
+                print(f"[DB-Error] Fehler beim Update: {e}")
+        else:
+            # 4b. INSERT: Echtes neues Video
+            values = [str(item.get(col, "")) for col in columns]
+            placeholders = ", ".join(["?"] * len(columns))
+            col_names = ", ".join(columns)
+            insert_query = f"INSERT OR REPLACE INTO {table_name} ({col_names}) VALUES ({placeholders})"
+            
+            try:
+                c.execute(insert_query, values)
+                neu_count += 1
+            except Exception as e:
+                print(f"[DB-Error] Fehler beim Insert: {e}")
 
     conn.commit()
     conn.close()
+    print(f"[DB-Manager] 📊 {neu_count} neue Videos | 🔄 {update_count} Updates")
 
 def load_recent_data(db_filename="raw_tiktok.db", table_name="videos", hours=48):
     """
@@ -91,12 +160,44 @@ def save_niche_results(arg1, arg2):
     if not isinstance(niche_name, str):
         niche_name = "general"
 
-    db_path = get_db_path("raw_tiktok.db")
+    db_path = get_db_path("trend_results.db")
     conn = sqlite3.connect(db_path)
     table_name = f"top10_{niche_name}"
     
     try:
-        df.to_sql(table_name, conn, if_exists="replace", index=False)
+        df_to_save = df.copy()
+
+        expected_columns = [
+            "rank",
+            "caption",
+            "trend_score",
+            "lifecycle_phase",
+            "avg_velocity",
+            "cluster_size",
+            "niche_relevance",
+            "updated_at",
+        ]
+
+        if "caption" not in df_to_save.columns:
+            df_to_save["caption"] = ""
+        if "trend_score" not in df_to_save.columns:
+            df_to_save["trend_score"] = 0
+        if "lifecycle_phase" not in df_to_save.columns:
+            df_to_save["lifecycle_phase"] = None
+        if "avg_velocity" not in df_to_save.columns:
+            df_to_save["avg_velocity"] = 0
+        if "cluster_size" not in df_to_save.columns:
+            df_to_save["cluster_size"] = 0
+        if "niche_relevance" not in df_to_save.columns:
+            fallback_relevance = df_to_save.get("avg_engagement", 0)
+            df_to_save["niche_relevance"] = fallback_relevance
+
+        df_to_save = df_to_save.reset_index(drop=True)
+        df_to_save["rank"] = range(1, len(df_to_save) + 1)
+        df_to_save["updated_at"] = datetime.utcnow().isoformat()
+        df_to_save = df_to_save[expected_columns]
+
+        df_to_save.to_sql(table_name, conn, if_exists="replace", index=False)
         print(f"[DB] Trends für '{niche_name}' gespeichert.")
     except Exception as e:
         print(f"[DB-Error] Fehler beim Speichern: {e}")
