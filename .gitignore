@@ -10,3 +10,6 @@ data/trends.json
 data/trends_user_*.json
 database/trends.json
 database/trends_user_*.json
+
+# VPN / Secrets
+*.ovpn
