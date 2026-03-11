@@ -1,4 +1,5 @@
 import concurrent.futures
+import glob
 import json
 import os
 import re
@@ -288,6 +289,41 @@ def load_users(conn_users):
     return pd.read_sql_query("SELECT * FROM user_onboarding_profile", conn_users)
 
 
+def load_valid_user_ids(conn_users):
+    try:
+        users_df = pd.read_sql_query("SELECT id FROM users", conn_users)
+    except Exception:
+        return set()
+    return {str(user_id).strip() for user_id in users_df["id"].tolist() if str(user_id).strip()}
+
+
+def cleanup_stale_user_json(output_dir, valid_user_ids):
+    pattern = os.path.join(output_dir, "trends_user_*.json")
+    for json_path in glob.glob(pattern):
+        filename = os.path.basename(json_path)
+        match = re.match(r"trends_user_(.+)\.json$", filename)
+        if not match:
+            continue
+        user_id = match.group(1).strip()
+        if user_id and user_id not in valid_user_ids:
+            try:
+                os.remove(json_path)
+            except OSError:
+                pass
+
+
+def load_existing_ai_ideas(json_path):
+    if not os.path.exists(json_path):
+        return []
+    try:
+        with open(json_path, "r", encoding="utf-8") as handle:
+            existing = json.load(handle)
+        ideas = existing.get("ai_video_ideas") if isinstance(existing, dict) else []
+        return ideas if isinstance(ideas, list) else []
+    except Exception:
+        return []
+
+
 def to_records(df, limit=None):
     if df.empty:
         return []
@@ -334,6 +370,12 @@ def run_agent():
         conn_users.close()
         return
 
+    valid_user_ids = load_valid_user_ids(conn_users)
+    if valid_user_ids:
+        users_df = users_df[users_df["user_id"].astype(str).isin(valid_user_ids)].copy()
+    users_df = users_df.drop_duplicates(subset=["user_id"], keep="last")
+    cleanup_stale_user_json(OUTPUT_DIR, {str(uid).strip() for uid in users_df["user_id"].tolist()})
+
     global_ranked = select_ranked_videos(raw_df, "general")
 
     for _, user in users_df.iterrows():
@@ -352,36 +394,51 @@ def run_agent():
         )
         known_video_ids = history_df["video_id"].astype(str).tolist() if not history_df.empty else []
 
+        json_path = os.path.join(OUTPUT_DIR, f"trends_user_{user_id}.json")
         new_videos_df = ranked_df[~ranked_df["video_id"].isin(known_video_ids)].head(MAX_IDEAS_PER_USER).copy()
+        ai_video_ideas = []
         if new_videos_df.empty:
             print(f"ℹ️ User {user_id} hat bereits alle aktuellen Trends gesehen. Keine neuen Ideen generiert.")
-            continue
+            ai_video_ideas = load_existing_ai_ideas(json_path)
+        else:
+            print(f"\n🚀 Verarbeite {len(new_videos_df)} neue Trends fuer User {user_id} (Brand: {industry_raw})...")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                results = list(executor.map(lambda caption: generate_personalized_guide(caption, user.to_dict()), new_videos_df["caption"]))
 
-        print(f"\n🚀 Verarbeite {len(new_videos_df)} neue Trends fuer User {user_id} (Brand: {industry_raw})...")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            results = list(executor.map(lambda caption: generate_personalized_guide(caption, user.to_dict()), new_videos_df["caption"]))
+            new_videos_df["ai_title"] = [result[0] for result in results]
+            new_videos_df["ai_sentiment"] = [result[1] for result in results]
+            new_videos_df["ai_guide"] = [result[2] for result in results]
+            ai_video_ideas = new_videos_df.to_dict(orient="records")
 
-        new_videos_df["ai_title"] = [result[0] for result in results]
-        new_videos_df["ai_sentiment"] = [result[1] for result in results]
-        new_videos_df["ai_guide"] = [result[2] for result in results]
+            today = datetime.now().strftime("%Y-%m-%d")
+            for video_id in new_videos_df["video_id"]:
+                conn_users.execute(
+                    "INSERT OR IGNORE INTO user_idea_history (user_id, video_id, generated_date) VALUES (?, ?, ?)",
+                    (user_id, str(video_id), today),
+                )
+            conn_users.commit()
 
-        today = datetime.now().strftime("%Y-%m-%d")
-        for video_id in new_videos_df["video_id"]:
-            conn_users.execute(
-                "INSERT OR IGNORE INTO user_idea_history (user_id, video_id, generated_date) VALUES (?, ?, ?)",
-                (user_id, str(video_id), today),
+        if not ai_video_ideas:
+            fallback_df = ranked_df.head(MAX_IDEAS_PER_USER).copy()
+            fallback_df["ai_title"] = "Trend-Idee fuer deine Marke"
+            fallback_df["ai_sentiment"] = fallback_df["caption"].apply(compute_sentiment_fallback)
+            fallback_df["ai_guide"] = (
+                "Videoformat: Trend-Remix\n"
+                "Hook: Starte mit dem staerksten Moment aus dem Trend.\n"
+                "Idee: Passe die Trend-Mechanik an deine Marke an.\n"
+                "Drehablauf: Hook, Produktbezug, Nutzen, CTA.\n"
+                "CTA: Fordere zu einer klaren naechsten Aktion auf."
             )
-        conn_users.commit()
+            ai_video_ideas = fallback_df.to_dict(orient="records")
 
         user_data = {
-            "ai_video_ideas": new_videos_df.to_dict(orient="records"),
+            "ai_video_ideas": ai_video_ideas,
             "top_trends": to_records(ranked_df, limit=10),
             "rising_trends": to_records(ranked_df.sort_values(by="avg_velocity", ascending=False), limit=10),
             "opportunities": to_records(ranked_df.sort_values(by="avg_engagement", ascending=False), limit=10),
             "global_trends": to_records(global_ranked, limit=10),
         }
 
-        json_path = os.path.join(OUTPUT_DIR, f"trends_user_{user_id}.json")
         with open(json_path, "w", encoding="utf-8") as handle:
             json.dump(user_data, handle, ensure_ascii=False, indent=4)
 

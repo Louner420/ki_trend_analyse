@@ -466,16 +466,19 @@ def _build_ai_ideas(payload):
     return ideas
 
 
-def _trend_card_from_record(record, fallback_idx):
+def _trend_card_from_record(record, fallback_idx, ai_title_map=None):
     record = record or {}
+    ai_title_map = ai_title_map or {}
     idx = record.get("rank") or fallback_idx
     try:
         idx = int(idx)
     except (TypeError, ValueError):
         idx = fallback_idx
+    video_id = _safe_text(record.get("video_id"))
+    mapped_ai_title = _safe_text(ai_title_map.get(video_id)) if video_id else ""
     return {
         "idx": idx,
-        "name": _safe_text(record.get("caption")) or f"Trend {idx}",
+        "name": mapped_ai_title or _safe_text(record.get("ai_title")) or _safe_text(record.get("caption")) or f"Trend {idx}",
         "hype": record.get("trend_score"),
         "velocity": record.get("avg_velocity"),
         "velocity_num": float(record.get("avg_velocity") or 0),
@@ -519,10 +522,16 @@ def _load_user_trends_payload():
 
 def _build_trend_sections(payload, result, raw, engaments):
     if isinstance(payload, dict) and payload.get("top_trends"):
-        top_trends = [_trend_card_from_record(item, idx) for idx, item in enumerate(payload.get("top_trends") or [], start=1)]
-        rising_trends = [_trend_card_from_record(item, idx) for idx, item in enumerate(payload.get("rising_trends") or [], start=1)]
-        opportunities = [_trend_card_from_record(item, idx) for idx, item in enumerate(payload.get("opportunities") or [], start=1)]
-        global_trends = [_trend_card_from_record(item, idx) for idx, item in enumerate(payload.get("global_trends") or [], start=1)]
+        ai_title_map = {}
+        for idea in payload.get("ai_video_ideas") or []:
+            idea_video_id = _safe_text((idea or {}).get("video_id"))
+            if idea_video_id and idea_video_id not in ai_title_map:
+                ai_title_map[idea_video_id] = _safe_text((idea or {}).get("ai_title"))
+
+        top_trends = [_trend_card_from_record(item, idx, ai_title_map) for idx, item in enumerate(payload.get("top_trends") or [], start=1)]
+        rising_trends = [_trend_card_from_record(item, idx, ai_title_map) for idx, item in enumerate(payload.get("rising_trends") or [], start=1)]
+        opportunities = [_trend_card_from_record(item, idx, ai_title_map) for idx, item in enumerate(payload.get("opportunities") or [], start=1)]
+        global_trends = [_trend_card_from_record(item, idx, ai_title_map) for idx, item in enumerate(payload.get("global_trends") or [], start=1)]
         return {
             "top_trends": top_trends[:4],
             "rising_trends": rising_trends[:4],
