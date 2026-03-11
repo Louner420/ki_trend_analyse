@@ -3,13 +3,14 @@ import os
 import pandas as pd
 from datetime import datetime, timedelta
 
-# Pfad zum Daten-Ordner
+# Pfad zum Daten-Ordner (Monorepo-Struktur)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
-os.makedirs(DATA_DIR, exist_ok=True)
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
+DB_DIR = os.path.join(PROJECT_ROOT, "database")
+os.makedirs(DB_DIR, exist_ok=True)
 
 def get_db_path(db_filename):
-    return os.path.join(DATA_DIR, db_filename)
+    return os.path.join(DB_DIR, db_filename)
 
 # ==========================================
 # 1. HAUPTFUNKTIONEN

@@ -4,7 +4,8 @@ import sys
 import os
 
 # Pfad anpassen, falls Module nicht gefunden werden (für Raspy wichtig)
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Füge Parent-Verzeichnis (ai/) hinzu, um database_manager etc zu importieren
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database_manager import load_recent_data, save_niche_results, init_dbs
 from feature_pipeline import SocialTrendAnalyzer

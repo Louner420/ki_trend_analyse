@@ -2,8 +2,11 @@ import sqlite3
 import pandas as pd
 import os
 
-# Pfad zur DB
-db_path = os.path.join(os.path.dirname(__file__), "data/raw_tiktok.db")
+# Pfad zur DB (Monorepo-Struktur)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
+DB_DIR = os.path.join(PROJECT_ROOT, "database")
+db_path = os.path.join(DB_DIR, "raw_tiktok.db")
 
 def check_table(table_name):
     print(f"\n--- PRÜFE TABELLE: {table_name} ---")

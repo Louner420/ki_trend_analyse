@@ -1,8 +1,11 @@
 import sqlite3
 import os
 
-# Pfad zur Datenbank
-db_path = os.path.join(os.path.dirname(__file__), "data/raw_tiktok.db")
+# Pfad zur Datenbank (Monorepo-Struktur)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
+DB_DIR = os.path.join(PROJECT_ROOT, "database")
+db_path = os.path.join(DB_DIR, "raw_tiktok.db")
 
 def reset_result_tables():
     if not os.path.exists(db_path):

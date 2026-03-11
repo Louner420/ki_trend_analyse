@@ -10,7 +10,9 @@ CORS(app) # Erlaubt Andis Frontend den Zugriff
 
 # --- KONFIGURATION ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-USERS_DB_PATH = os.path.join(BASE_DIR, "data", "users.db")
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
+DB_DIR = os.path.join(PROJECT_ROOT, "database")
+USERS_DB_PATH = os.path.join(DB_DIR, "users.db")
 API_KEY = "sk-eea92dcb4a3e4ec0a1dcba12ddaead0a"  
 API_URL = "http://10.10.11.11:8080/api/chat/completions" 
 MODEL_NAME = "llama3:latest" 

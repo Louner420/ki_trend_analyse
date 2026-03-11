@@ -1,11 +1,13 @@
 import sqlite3
 import os
 
-# Pfade
-BASE_DIR = "/home/pi/projects/ai/data"
-DB_TIKTOK = os.path.join(BASE_DIR, "raw_tiktok.db")
-DB_INSTA = os.path.join(BASE_DIR, "raw_instagram.db")
-DB_RESULTS = os.path.join(BASE_DIR, "trend_results.db")
+# Pfade (Monorepo-Struktur)
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(_BASE_DIR)))
+DB_DIR = os.path.join(_PROJECT_ROOT, "database")
+DB_TIKTOK = os.path.join(DB_DIR, "raw_tiktok.db")
+DB_INSTA = os.path.join(DB_DIR, "raw_instagram.db")
+DB_RESULTS = os.path.join(DB_DIR, "trend_results.db")
 
 def check_db(name, path, table):
     if not os.path.exists(path):
