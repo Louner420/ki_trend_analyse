@@ -20,7 +20,17 @@ $VENV "$PROJ/ai/cleanup.py" >> "$LOG" 2>&1 || echo "[WARN] cleanup.py fehlgeschl
 echo "[$(date)] Schritt 2: Content Agent (Trend-Clustering + AI-Ideen)..." >> "$LOG"
 $VENV "$PROJ/content_agent.py" >> "$LOG" 2>&1 || echo "[WARN] content_agent.py fehlgeschlagen" >> "$LOG"
 
-# 3. Log-Rotation: Nur letzte 500 Zeilen behalten
+# 3. Log-DBs bereinigen (>30 Tage loeschen)
+echo "[$(date)] Schritt 3: Log-DBs bereinigen..." >> "$LOG"
+for db in "$PROJ/database/logs.db" "$PROJ/database/error.db"; do
+    if [ -f "$db" ]; then
+        sqlite3 "$db" "DELETE FROM logs WHERE timestamp < datetime('now', '-30 days');" 2>/dev/null
+        sqlite3 "$db" "VACUUM;" 2>/dev/null
+        echo "  Bereinigt: $(basename "$db")" >> "$LOG"
+    fi
+done
+
+# 4. Log-Rotation: Nur letzte 500 Zeilen behalten
 if [ -f "$LOG" ] && [ "$(wc -l < "$LOG")" -gt 500 ]; then
     tail -500 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
 fi
