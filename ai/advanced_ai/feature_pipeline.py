@@ -52,6 +52,20 @@ class SocialTrendAnalyzer:
         if df.empty:
             return df
 
+        # Datumsfelder robust normalisieren (einige Datenquellen liefern kein scraped_at).
+        if 'scraped_at' in df.columns:
+            df['scraped_at'] = pd.to_datetime(df['scraped_at'], errors='coerce', utc=True).dt.tz_localize(None)
+        else:
+            df['scraped_at'] = pd.NaT
+        if 'upload_date' in df.columns:
+            df['upload_date'] = pd.to_datetime(df['upload_date'], errors='coerce', utc=True).dt.tz_localize(None)
+        else:
+            df['upload_date'] = pd.NaT
+
+        now_ts = pd.Timestamp.now(tz='UTC').tz_localize(None)
+        df['scraped_at'] = df['scraped_at'].fillna(now_ts)
+        df['upload_date'] = df['upload_date'].fillna(df['scraped_at'])
+
         # 1. Zeitliche Metriken berechnen
         # Alter des Videos in Stunden zum Zeitpunkt des Scrapes
         df['age_hours'] = (df['scraped_at'] - df['upload_date']).dt.total_seconds() / 3600
@@ -64,6 +78,7 @@ class SocialTrendAnalyzer:
         for col in ['likes', 'comments', 'shares', 'views']:
             if col not in df.columns:
                 df[col] = 0
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
         # Gewichtete Summe: Ein Share ist oft "wertvoller" als ein Like für Viralität
         df['total_interactions'] = df['likes'] + df['comments'] + (df['shares'] * 2.0)

@@ -57,6 +57,9 @@ class TrendScorer:
             'age_hours': 'avg_age_hours'
         })
         
+        # Generate a unique video_id for each cluster trend (needed for content_agent)
+        cluster_stats['video_id'] = [f"trend_{i}" for i in range(len(cluster_stats))]
+        
         return cluster_stats
 
     def calculate_scores(self, cluster_stats):

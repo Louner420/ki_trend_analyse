@@ -85,6 +85,21 @@ LABEL_MAP = {
 }
 
 
+def _sanitize_user_input(text, max_len=200):
+    """Bereinigt User-Input bevor er in LLM-Prompts eingefuegt wird."""
+    if not text or not isinstance(text, str):
+        return ""
+    # Entferne typische Prompt-Injection-Muster
+    text = re.sub(r"(?i)(ignore|vergiss|forget|disregard)\s+(all|alle|previous|vorherige|above)", "", text)
+    text = re.sub(r"(?i)(new|neue)\s+(instruction|anweisung|role|rolle)", "", text)
+    text = re.sub(r"(?i)system\s*:\s*", "", text)
+    text = re.sub(r"(?i)\bact as\b", "", text)
+    text = re.sub(r"(?i)\bdu bist jetzt\b", "", text)
+    # Entferne Steuerzeichen
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)
+    return text.strip()[:max_len]
+
+
 def _resolve_db_path(filename):
     if os.path.basename(BASE_DIR) == "ai":
         candidates = [
@@ -373,12 +388,12 @@ def generate_video_idea(trend, user_profile):
     example = trend.get("example_caption", "")
     lifecycle = trend.get("lifecycle_phase", "")
 
-    industry = user_profile.get("industry", "Unbekannt")
-    product = user_profile.get("product_description", "kein Produkt angegeben")
-    audience = f"{user_profile.get('target_audience_type', '')} ({user_profile.get('target_age_group', '')})"
-    brand_tone = user_profile.get("brand_tone", "Neutral")
-    no_gos = user_profile.get("no_go_topics", "Keine")
-    usp = user_profile.get("unique_value", "")
+    industry = _sanitize_user_input(user_profile.get("industry", "Unbekannt"))
+    product = _sanitize_user_input(user_profile.get("product_description", "kein Produkt angegeben"))
+    audience = _sanitize_user_input(f"{user_profile.get('target_audience_type', '')} ({user_profile.get('target_age_group', '')})")
+    brand_tone = _sanitize_user_input(user_profile.get("brand_tone", "Neutral"))
+    no_gos = _sanitize_user_input(user_profile.get("no_go_topics", "Keine"))
+    usp = _sanitize_user_input(user_profile.get("unique_value", ""))
 
     prompt = f"""Erstelle eine konkrete TikTok/Reels-Videoidee fuer folgende Marke, basierend auf dem aktuellen Trend.
 

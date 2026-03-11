@@ -106,6 +106,20 @@ def ensure_spontaneous_format(raw_text, topic, requested_format=None):
         f"CTA: {fields['CTA']}",
     ])
 
+def _sanitize_user_input(text, max_len=200):
+    """Bereinigt User-Input bevor er in LLM-Prompts eingefuegt wird."""
+    if not text or not isinstance(text, str):
+        return ""
+    import re as _re
+    text = _re.sub(r"(?i)(ignore|vergiss|forget|disregard)\s+(all|alle|previous|vorherige|above)", "", text)
+    text = _re.sub(r"(?i)(new|neue)\s+(instruction|anweisung|role|rolle)", "", text)
+    text = _re.sub(r"(?i)system\s*:\s*", "", text)
+    text = _re.sub(r"(?i)\bact as\b", "", text)
+    text = _re.sub(r"(?i)\bdu bist jetzt\b", "", text)
+    text = _re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)
+    return text.strip()[:max_len]
+
+
 def get_user_profile(user_id):
     """Holt den Kontext des Users aus der Datenbank für maßgeschneiderte Antworten."""
     if not os.path.exists(USERS_DB_PATH):
@@ -157,7 +171,7 @@ def refine_idea():
         return jsonify({"error": "Fehlende Daten"}), 400
 
     profile = get_user_profile(user_id)
-    brand_tone = profile.get('brand_tone', 'Neutral') if profile else 'Neutral'
+    brand_tone = _sanitize_user_input(profile.get('brand_tone', 'Neutral')) if profile else 'Neutral'
 
     prompt = f"""Hier ist eine bestehende Video-Idee für unseren Kunden (Brand Tone: {brand_tone}):
     
@@ -204,11 +218,11 @@ def spontaneous_idea():
     if not profile:
         return jsonify({"error": "User Profil nicht gefunden"}), 404
 
-    industry = profile.get('industry', 'Unbekannt')
-    product = profile.get('product_description', '')
-    audience = profile.get('audience_description', '')
-    brand_tone = profile.get('brand_tone', 'Neutral')
-    no_gos = profile.get('no_go_topics', 'Keine')
+    industry = _sanitize_user_input(profile.get('industry', 'Unbekannt'))
+    product = _sanitize_user_input(profile.get('product_description', ''))
+    audience = _sanitize_user_input(profile.get('audience_description', ''))
+    brand_tone = _sanitize_user_input(profile.get('brand_tone', 'Neutral'))
+    no_gos = _sanitize_user_input(profile.get('no_go_topics', 'Keine'))
 
     format_line = f"Videoformat: {requested_format}" if requested_format else "Videoformat: (waehle das passendste Format: POV, Talking Head, Trend-Remix, Behind the Scenes, Meme/Comedy, Storytelling)"
 

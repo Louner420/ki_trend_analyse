@@ -1273,8 +1273,8 @@ def onboarding_post():
             ))
             conn.commit()
             conn.close()
-        except Exception:
-            pass  # Session-Flag trotzdem setzen, Logging optional
+        except Exception as exc:
+            current_app.logger.error("Onboarding DB-Fehler fuer user %s: %s", user_id, exc)
 
     session["onboarding_done"] = True
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":

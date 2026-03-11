@@ -1,20 +1,28 @@
-# TrendDash (MVP)
+# TrendDash
 
-## Setup (macOS/Linux)
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+## Setup
+```bash
+cd ~/projects/web
+./run.sh
+```
 
-## Setup (Windows)
-py -3 -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
+`run.sh` erstellt bei Bedarf automatisch eine lokale virtuelle Umgebung unter `.venv_local`, installiert die Abhaengigkeiten und startet die Website auf Port `5002`.
 
-## Start
-python run.py
-# auf dem Raspberry Pi:
-# python run.py  (oder in run.py host='0.0.0.0' setzen)
+## Aufruf
+```text
+http://127.0.0.1:5002/login
+```
 
-## Struktur
-- Topbar, Sidebar, KPI-Row, Chart-Platzhalter, Tabelle
-- Route "/" (Dashboard), "/trends" (Platzhalter)
+## Wichtige Routen
+- `/login`
+- `/register`
+- `/`
+- `/trends`
+- `/tasks`
+- `/planner`
+- `/planner/month`
+- `/settings`
+
+## Datenhaltung
+Die Web-App liest ihre SQLite-Dateien standardmaessig aus dem zentralen Monorepo-Ordner `~/projects/database`.
+In Docker kann stattdessen `DATA_PATH` gesetzt werden.

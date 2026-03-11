@@ -6,11 +6,32 @@ from datetime import datetime, timedelta
 # Pfad zum Daten-Ordner (Monorepo-Struktur)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
-DB_DIR = os.path.join(PROJECT_ROOT, "database")
-os.makedirs(DB_DIR, exist_ok=True)
+
+
+def _db_dir_candidates():
+    if os.path.basename(BASE_DIR) == "ai":
+        return [os.path.join(PROJECT_ROOT, "database"), os.path.join(BASE_DIR, "data")]
+
+    return [os.path.join(BASE_DIR, "data"), os.path.join(PROJECT_ROOT, "database")]
+
+
+def _select_db_dir(db_filename=None):
+    candidates = _db_dir_candidates()
+    for directory in candidates:
+        if os.path.isdir(directory):
+            return directory
+
+    fallback_dir = candidates[0]
+    os.makedirs(fallback_dir, exist_ok=True)
+    return fallback_dir
+
+
+DB_DIR = _select_db_dir()
 
 def get_db_path(db_filename):
-    return os.path.join(DB_DIR, db_filename)
+    db_dir = _select_db_dir(db_filename)
+    os.makedirs(db_dir, exist_ok=True)
+    return os.path.join(db_dir, db_filename)
 
 # ==========================================
 # 1. HAUPTFUNKTIONEN
@@ -139,12 +160,44 @@ def save_niche_results(arg1, arg2):
     if not isinstance(niche_name, str):
         niche_name = "general"
 
-    db_path = get_db_path("raw_tiktok.db")
+    db_path = get_db_path("trend_results.db")
     conn = sqlite3.connect(db_path)
     table_name = f"top10_{niche_name}"
     
     try:
-        df.to_sql(table_name, conn, if_exists="replace", index=False)
+        df_to_save = df.copy()
+
+        expected_columns = [
+            "rank",
+            "caption",
+            "trend_score",
+            "lifecycle_phase",
+            "avg_velocity",
+            "cluster_size",
+            "niche_relevance",
+            "updated_at",
+        ]
+
+        if "caption" not in df_to_save.columns:
+            df_to_save["caption"] = ""
+        if "trend_score" not in df_to_save.columns:
+            df_to_save["trend_score"] = 0
+        if "lifecycle_phase" not in df_to_save.columns:
+            df_to_save["lifecycle_phase"] = None
+        if "avg_velocity" not in df_to_save.columns:
+            df_to_save["avg_velocity"] = 0
+        if "cluster_size" not in df_to_save.columns:
+            df_to_save["cluster_size"] = 0
+        if "niche_relevance" not in df_to_save.columns:
+            fallback_relevance = df_to_save.get("avg_engagement", 0)
+            df_to_save["niche_relevance"] = fallback_relevance
+
+        df_to_save = df_to_save.reset_index(drop=True)
+        df_to_save["rank"] = range(1, len(df_to_save) + 1)
+        df_to_save["updated_at"] = datetime.utcnow().isoformat()
+        df_to_save = df_to_save[expected_columns]
+
+        df_to_save.to_sql(table_name, conn, if_exists="replace", index=False)
         print(f"[DB] Trends für '{niche_name}' gespeichert.")
     except Exception as e:
         print(f"[DB-Error] Fehler beim Speichern: {e}")

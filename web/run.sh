@@ -1,13 +1,18 @@
 #!/bin/bash
 
+set -euo pipefail
+
 cd "$(dirname "$0")"
 
-if [ ! -d ".venv" ]; then
-    python3 -m venv .venv
+VENV_DIR=".venv_local"
+INSTALL_DEPS="${INSTALL_DEPS:-0}"
+
+if [ ! -x "$VENV_DIR/bin/python" ]; then
+    python3 -m venv "$VENV_DIR"
 fi
 
-source .venv/bin/activate
+if [ "$INSTALL_DEPS" = "1" ]; then
+    "$VENV_DIR/bin/python" -m pip install -r requirements.txt
+fi
 
-pip install -r requirements.txt
-
-python3 run.py
+exec "$VENV_DIR/bin/python" run.py
