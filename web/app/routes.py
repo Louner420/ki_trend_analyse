@@ -436,23 +436,30 @@ def _parse_ai_guide(guide_text):
 def _build_ai_idea_payload(record, fallback_id):
     record = record or {}
     parsed = _parse_ai_guide(record.get("ai_guide"))
+    trend_label = _safe_text(record.get("trend_label"))
     trend_title = _safe_text(record.get("caption"))
     notes = parsed.get("drehhinweise") or parsed.get("idee") or trend_title
     script = parsed.get("drehablauf") or parsed.get("idee") or ""
     hook = parsed.get("hook") or trend_title
-    title = _safe_text(record.get("ai_title")) or parsed.get("title") or trend_title or "AI-Idee"
+    title = _safe_text(record.get("ai_title")) or parsed.get("title") or trend_label or "AI-Idee"
     video_format = parsed.get("videoformat") or "Trend-Remix"
+    sentiment_val = record.get("ai_sentiment")
+    try:
+        sentiment_val = int(float(sentiment_val)) if sentiment_val is not None else None
+    except (TypeError, ValueError):
+        sentiment_val = None
     return {
         "id": _safe_text(record.get("video_id")) or f"idea-{fallback_id}",
         "title": title,
         "hook": hook,
-        "trend": video_format,
+        "trend": trend_label or video_format,
         "videoType": "talking" if "talking" in video_format.lower() else "visual",
         "script": script,
         "notes": notes,
         "cta": parsed.get("cta") or "",
-        "source_caption": trend_title,
-        "sentiment": record.get("ai_sentiment"),
+        "sentiment": sentiment_val,
+        "lifecycle": _safe_text(record.get("lifecycle_phase")),
+        "cluster_size": record.get("cluster_size"),
     }
 
 
@@ -474,17 +481,31 @@ def _trend_card_from_record(record, fallback_idx, ai_title_map=None):
         idx = int(idx)
     except (TypeError, ValueError):
         idx = fallback_idx
-    video_id = _safe_text(record.get("video_id"))
-    mapped_ai_title = _safe_text(ai_title_map.get(video_id)) if video_id else ""
+    # Trend-Label hat Prioritaet (Cluster-Name), danach Fallbacks
+    name = (
+        _safe_text(record.get("trend_label"))
+        or _safe_text(record.get("ai_title"))
+        or f"Trend {idx}"
+    )
+    sentiment_val = record.get("sentiment") or record.get("ai_sentiment")
+    if sentiment_val is not None and sentiment_val != "":
+        try:
+            sentiment_val = int(float(sentiment_val))
+        except (TypeError, ValueError):
+            sentiment_val = None
+    lifecycle = _safe_text(record.get("lifecycle_phase"))
+    cluster_size = record.get("cluster_size")
     return {
         "idx": idx,
-        "name": _safe_text(record.get("caption")) or mapped_ai_title or _safe_text(record.get("ai_title")) or f"Trend {idx}",
+        "name": name,
         "hype": record.get("trend_score"),
         "velocity": record.get("avg_velocity"),
         "velocity_num": float(record.get("avg_velocity") or 0),
         "engagement": record.get("avg_engagement"),
         "engagement_num": float(record.get("avg_engagement") or 0),
-        "sentiment": record.get("ai_sentiment") or "—",
+        "sentiment": sentiment_val if sentiment_val is not None else "—",
+        "lifecycle": lifecycle,
+        "cluster_size": cluster_size,
         "opp_num": (float(record.get("avg_velocity") or 0) / 1000.0) + float(record.get("avg_engagement") or 0),
     }
 
@@ -522,16 +543,10 @@ def _load_user_trends_payload():
 
 def _build_trend_sections(payload, result, raw, engaments):
     if isinstance(payload, dict) and payload.get("top_trends"):
-        ai_title_map = {}
-        for idea in payload.get("ai_video_ideas") or []:
-            idea_video_id = _safe_text((idea or {}).get("video_id"))
-            if idea_video_id and idea_video_id not in ai_title_map:
-                ai_title_map[idea_video_id] = _safe_text((idea or {}).get("ai_title"))
-
-        top_trends = [_trend_card_from_record(item, idx, ai_title_map) for idx, item in enumerate(payload.get("top_trends") or [], start=1)]
-        rising_trends = [_trend_card_from_record(item, idx, ai_title_map) for idx, item in enumerate(payload.get("rising_trends") or [], start=1)]
-        opportunities = [_trend_card_from_record(item, idx, ai_title_map) for idx, item in enumerate(payload.get("opportunities") or [], start=1)]
-        global_trends = [_trend_card_from_record(item, idx, ai_title_map) for idx, item in enumerate(payload.get("global_trends") or [], start=1)]
+        top_trends = [_trend_card_from_record(item, idx) for idx, item in enumerate(payload.get("top_trends") or [], start=1)]
+        rising_trends = [_trend_card_from_record(item, idx) for idx, item in enumerate(payload.get("rising_trends") or [], start=1)]
+        opportunities = [_trend_card_from_record(item, idx) for idx, item in enumerate(payload.get("opportunities") or [], start=1)]
+        global_trends = [_trend_card_from_record(item, idx) for idx, item in enumerate(payload.get("global_trends") or [], start=1)]
         return {
             "top_trends": top_trends[:4],
             "rising_trends": rising_trends[:4],

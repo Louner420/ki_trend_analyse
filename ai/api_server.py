@@ -121,15 +121,17 @@ def get_user_profile(user_id):
         print(f"DB Error: {e}")
     return None
 
-def ask_llama(prompt):
+def ask_llama(prompt, system_msg=None):
     """Schickt den Prompt live an den Schulserver."""
     if not API_KEY:
         return "Fehler: LLM_API_KEY ist nicht gesetzt."
+    if system_msg is None:
+        system_msg = "Du bist ein erfahrener Social-Media-Manager. Antworte IMMER auf Deutsch. Halte dich strikt ans vorgegebene Ausgabeformat. Keine Einleitungen, keine Erklaerungen ausserhalb des Formats."
     headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
     payload = {
         "model": MODEL_NAME,
         "messages": [
-            {"role": "system", "content": "Du bist ein Social-Media-Experte. Antworte immer auf Deutsch und halte dich strikt an die Vorgaben."},
+            {"role": "system", "content": system_msg},
             {"role": "user", "content": prompt}
         ],
         "temperature": 0.7
@@ -201,32 +203,29 @@ def spontaneous_idea():
     profile = get_user_profile(user_id)
     if not profile:
         return jsonify({"error": "User Profil nicht gefunden"}), 404
-        
-    brand_context = f"{profile.get('industry', '')}. {profile.get('audience_description', '')}"
+
+    industry = profile.get('industry', 'Unbekannt')
     product = profile.get('product_description', '')
-    
-    prompt = f"""Du bist ein Social Media Manager. Dein Kunde (Branche: {brand_context}, Produkt: {product}) hat gerade folgende spontane Idee / Situation geäußert:
-    
-    "{topic}"
-    
-    Mach daraus ein fertiges, kurzes TikTok-Skript.
-    Gewuenschtes Format (falls vorhanden): {requested_format or 'frei waehlbar'}
+    audience = profile.get('audience_description', '')
+    brand_tone = profile.get('brand_tone', 'Neutral')
+    no_gos = profile.get('no_go_topics', 'Keine')
 
-    HARTE REGELN:
-    1) Nutze das Thema in Hook ODER Idee wortnah. Erfinde kein anderes Hauptthema.
-    2) Bleibe bei der Branche und dem Produktkontext des Kunden.
-    3) Keine Meta-Saetze, keine Erklaerung ausserhalb des Formats.
-    4) Wenn ein Format gewuenscht wurde, nutze genau dieses Format.
-    Antworte im Format:
-    Titel: ...
-    Videoformat: ...
-    Hook: ...
-    Idee: ...
-    Drehablauf: ...
-    CTA: ...
+    format_line = f"Videoformat: {requested_format}" if requested_format else "Videoformat: (waehle das passendste Format: POV, Talking Head, Trend-Remix, Behind the Scenes, Meme/Comedy, Storytelling)"
 
-    "WICHTIG: Antworte AUSSCHLIESSLICH in dem vorgegebenen Format. Nutze keine Einleitungs- oder Schlusssätze."
-    """
+    prompt = f"""Erstelle ein kurzes TikTok/Reels-Skript zum Thema "{topic}".
+
+MARKE: {industry}, Produkt: {product}
+ZIELGRUPPE: {audience}
+TONALITAET: {brand_tone}
+NO-GOs: {no_gos}
+
+Antworte NUR in diesem Format:
+Titel: (kurzer Titel, max 8 Woerter, bezieht sich auf "{topic}")
+{format_line}
+Hook: (erste 1-2 Sek, macht neugierig auf "{topic}")
+Idee: (worum es konkret geht, 1-2 Saetze)
+Drehablauf: (Schritt fuer Schritt, 15-30 Sek Video)
+CTA: (Call-to-Action)"""
     
     if (REQUIRE_LLM or SPONTANEOUS_REQUIRE_LLM) and not API_KEY:
         return jsonify({"error": "LLM_API_KEY fehlt. Spontane Ideen muessen vom Schulserver generiert werden."}), 503

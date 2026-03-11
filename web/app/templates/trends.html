@@ -35,10 +35,11 @@
     </div>
     <div class="trend-card-grid trend-card-grid--large">
       {% for t in top_four_hype %}
-        {% set hype_num = (t.hype or 0)|float %}
-        {% if hype_num > 70 %}{% set status_label, status_icon, status_class = 'Viral', '🔥', 'trend-status-viral' %}
-        {% elif hype_num >= 40 %}{% set status_label, status_icon, status_class = 'Rising', '📈', 'trend-status-rising' %}
-        {% else %}{% set status_label, status_icon, status_class = 'Early Trend', '💤', 'trend-status-early' %}{% endif %}
+        {% set lc = t.lifecycle|default('')|string %}
+        {% if 'PEAKING' in lc %}{% set status_label, status_icon, status_class = 'Peaking', '🔥', 'trend-status-viral' %}
+        {% elif 'EMERGING' in lc %}{% set status_label, status_icon, status_class = 'Emerging', '🚀', 'trend-status-rising' %}
+        {% elif 'STAGNANT' in lc %}{% set status_label, status_icon, status_class = 'Stagnant', '📉', 'trend-status-early' %}
+        {% else %}{% set status_label, status_icon, status_class = 'Nische', '💡', 'trend-status-early' %}{% endif %}
         <button type="button" class="trend-card trend-card--clickable" data-trend-open data-trend-index="{{ t.idx }}">
           <div class="trend-card-header">
             <span class="trend-card-name">{{ t.name or '—' }}</span>
@@ -48,7 +49,7 @@
             <div class="trend-card-row"><span class="trend-card-label">Hype-Index</span><span class="trend-card-value">{{ (t.hype|default(0)|float)|round(1) if t.hype is not none else '—' }}</span></div>
             <div class="trend-card-row"><span class="trend-card-label">Velocity</span><span class="trend-card-value">{{ fmt_velocity(t.velocity) }}</span></div>
             <div class="trend-card-row"><span class="trend-card-label">Engagement</span><span class="trend-card-value">{{ fmt_engagement(t.engagement) }}</span></div>
-            <div class="trend-card-row"><span class="trend-card-label">Sentiment</span><span class="trend-card-value">{{ t.sentiment or '—' }}</span></div>
+            <div class="trend-card-row"><span class="trend-card-label">Sentiment</span><span class="trend-card-value">{% if t.sentiment is not none and t.sentiment != '—' %}{{ t.sentiment }}/100{% else %}—{% endif %}</span></div>
           </div>
         </button>
       {% endfor %}
@@ -63,8 +64,10 @@
     </div>
     <div class="trend-card-grid trend-card-grid--large">
       {% for t in top_four_rising %}
-        {% set vel_num = (t.velocity or 0)|float %}
-        {% if vel_num >= 10000 %}{% set vel_icon, vel_class = '🚀', 'trend-velocity-high' %}{% else %}{% set vel_icon, vel_class = '📈', 'trend-velocity-mid' %}{% endif %}
+        {% set lc = t.lifecycle|default('')|string %}
+        {% if 'EMERGING' in lc %}{% set vel_icon, vel_class = '🚀', 'trend-velocity-high' %}
+        {% elif 'PEAKING' in lc %}{% set vel_icon, vel_class = '🔥', 'trend-velocity-high' %}
+        {% else %}{% set vel_icon, vel_class = '📈', 'trend-velocity-mid' %}{% endif %}
         <button type="button" class="trend-card trend-card--clickable" data-trend-open data-trend-index="{{ t.idx }}">
           <div class="trend-card-header">
             <span class="trend-card-name">{{ t.name or '—' }}</span>
@@ -74,7 +77,7 @@
             <div class="trend-card-row"><span class="trend-card-label">Velocity</span><span class="trend-card-value">{{ fmt_velocity(t.velocity) }}</span></div>
             <div class="trend-card-row"><span class="trend-card-label">Hype-Index</span><span class="trend-card-value">{{ (t.hype|default(0)|float)|round(1) if t.hype is not none else '—' }}</span></div>
             <div class="trend-card-row"><span class="trend-card-label">Engagement</span><span class="trend-card-value">{{ fmt_engagement(t.engagement) }}</span></div>
-            <div class="trend-card-row"><span class="trend-card-label">Sentiment</span><span class="trend-card-value">{{ t.sentiment or '—' }}</span></div>
+            <div class="trend-card-row"><span class="trend-card-label">Sentiment</span><span class="trend-card-value">{% if t.sentiment is not none and t.sentiment != '—' %}{{ t.sentiment }}/100{% else %}—{% endif %}</span></div>
           </div>
         </button>
       {% endfor %}
@@ -103,7 +106,7 @@
             <div class="trend-card-row"><span class="trend-card-label">Hype-Index</span><span class="trend-card-value">{{ (t.hype|default(0)|float)|round(1) if t.hype is not none else '—' }}</span></div>
             <div class="trend-card-row"><span class="trend-card-label">Velocity</span><span class="trend-card-value">{{ fmt_velocity(t.velocity) }}</span></div>
             <div class="trend-card-row"><span class="trend-card-label">Engagement</span><span class="trend-card-value">{{ fmt_engagement(t.engagement) }}</span></div>
-            <div class="trend-card-row"><span class="trend-card-label">Sentiment</span><span class="trend-card-value">{{ t.sentiment or '—' }}</span></div>
+            <div class="trend-card-row"><span class="trend-card-label">Sentiment</span><span class="trend-card-value">{% if t.sentiment is not none and t.sentiment != '—' %}{{ t.sentiment }}/100{% else %}—{% endif %}</span></div>
           </div>
         </button>
       {% endfor %}
@@ -124,6 +127,12 @@
             <span class="ai-idea-block-tag">{{ idea.trend }}</span>
           </div>
           <p class="ai-idea-block-preview">{{ idea.hook }}</p>
+          {% if idea.sentiment is not none %}
+          <div class="ai-idea-block-meta">
+            <span class="ai-idea-sentiment">Sentiment: {{ idea.sentiment }}/100</span>
+            {% if idea.lifecycle %}<span class="ai-idea-lifecycle">{{ idea.lifecycle }}</span>{% endif %}
+          </div>
+          {% endif %}
         </button>
       {% else %}
         <div class="ai-idea-block trend-ai-idea-card ai-idea-block--empty">
@@ -171,6 +180,8 @@
           "velocity_num": {{ t.velocity_num }},
           "engagement": {{ (t.engagement)|tojson }},
           "sentiment": {{ (t.sentiment or '—')|tojson }},
+          "lifecycle": {{ (t.lifecycle or '')|tojson }},
+          "cluster_size": {{ (t.cluster_size or 0)|tojson }},
           "opp_num": {{ t.opp_num }}
         }{% if not loop.last %},{% endif %}
       {% endfor %}
