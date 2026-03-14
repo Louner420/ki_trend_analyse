@@ -11,7 +11,6 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from database_manager import save_to_db
 from tiktok_scraper import get_trending_dict
 
-<<<<<<< HEAD
 # NEU: Hole den Pfad aus der Docker-Umgebungsvariable
 # Falls lokal ausgeführt, wird das aktuelle Verzeichnis genutzt.
 DB_DIR = os.getenv("DATA_PATH", os.path.dirname(os.path.abspath(__file__)))
@@ -21,11 +20,6 @@ KI_SCRIPT_NAME = "manual_ai_test.py"
 
 def run_scraper():
     print(f"[Daemon] High-Performance Scraper gestartet (Pfad: {DB_DIR})...")
-=======
-
-def run_scraper():
-    print("[Daemon] TikTok Scraper gestartet (KI-Analyse laeuft per Cron/Service separat)...")
->>>>>>> 746edddab3438fb87393415ad8deb9c85fbb5fa0
 
     while True:
         print("\n[Daemon] ------------------------------------------------")
@@ -35,54 +29,20 @@ def run_scraper():
             tiktok_data = asyncio.run(get_trending_dict(count=150))
 
             if tiktok_data:
-<<<<<<< HEAD
                 # GEÄNDERT: Nutze den absoluten Pfad zum Volume
                 db_path = os.path.join(DB_DIR, "raw_tiktok.db")
                 save_to_db(tiktok_data, db_path, "videos")
                 
                 print(f"[Daemon] ✅ TikTok: {len(tiktok_data)} Videos in {db_path} gespeichert.")
                 new_data_available = True
-=======
                 save_to_db(tiktok_data, "raw_tiktok.db", "videos")
                 print(f"[Daemon] ✅ {len(tiktok_data)} neue Videos gespeichert.")
->>>>>>> 746edddab3438fb87393415ad8deb9c85fbb5fa0
             else:
                 print("[Daemon] ⚠️ Keine Daten in diesem Durchlauf.")
 
         except Exception as e:
             print(f"[Daemon-Error] TikTok Crash: {e}")
 
-<<<<<<< HEAD
-        if new_data_available:
-            print(f"[Daemon] 🧠 Wecke den 'Koch' (KI-Analyse: {KI_SCRIPT_NAME})...")
-            
-            script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), KI_SCRIPT_NAME)
-            
-            if os.path.exists(script_path):
-                try:
-                    result = subprocess.run(
-                        [sys.executable, script_path], 
-                        capture_output=True, 
-                        text=True,
-                        check=False 
-                    )
-                    
-                    if result.returncode == 0:
-                        print("[Daemon] ✅ KI-Update erfolgreich abgeschlossen!")
-                        print(f"[KI-Log] {result.stdout.strip()[-300:]}...") 
-                    else:
-                        print(f"[Daemon] ❌ KI-Fehler (Code {result.returncode}):")
-                        print(result.stderr) 
-                        
-                except Exception as e:
-                    print(f"[Daemon-Error] Konnte KI-Skript nicht starten: {e}")
-            else:
-                print(f"[Daemon] ⚠️ WARNUNG: Skript '{KI_SCRIPT_NAME}' nicht gefunden!")
-        else:
-            print("[Daemon] Kein KI-Update nötig (keine neuen Daten).")
-
-=======
->>>>>>> 746edddab3438fb87393415ad8deb9c85fbb5fa0
         sleep_minutes = random.randint(4, 10)
         print(f"[Daemon] 💤 Schlafe für {sleep_minutes} Minuten...")
         time.sleep(sleep_minutes * 60)
