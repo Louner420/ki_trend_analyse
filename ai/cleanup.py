@@ -1,22 +1,25 @@
 import sqlite3
 import os
-import time
 
-# Löscht Videos, die älter als 7 Tage sind, um die DB schnell zu halten
-DB_PATH = os.path.join(os.path.dirname(__file__), "data/raw_tiktok.db")
+# PFAD-ANPASSUNG FÜR DOCKER VOLUME
+# Nutzt /app/database (aus docker-compose) oder den lokalen 'data' Ordner
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_DIR = os.getenv("DATA_PATH", os.path.join(BASE_DIR, "data"))
+DB_PATH = os.path.join(DB_DIR, "raw_tiktok.db")
+
 DAYS_TO_KEEP = 7
 
 def clean_database():
     if not os.path.exists(DB_PATH):
+        print(f"[Cleanup] ⚠️ Datenbank nicht gefunden unter: {DB_PATH}")
         return
 
-    print("[Cleanup] Starte Datenbank-Bereinigung...")
+    print(f"[Cleanup] Starte Bereinigung in: {DB_PATH}")
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         
-        # SQL um alte Einträge zu löschen (basierend auf upload_date)
-        # Wir nutzen SQLite's 'date' modifier
+        # Lösche Einträge, die älter als X Tage sind
         c.execute(f"DELETE FROM videos WHERE upload_date < date('now', '-{DAYS_TO_KEEP} days')")
         deleted_count = c.rowcount
         
@@ -24,7 +27,7 @@ def clean_database():
         conn.close()
         print(f"[Cleanup] ✅ {deleted_count} alte Videos gelöscht.")
         
-        # Datenbank physisch verkleinern (VACUUM)
+        # Datenbank physisch verkleinern
         conn = sqlite3.connect(DB_PATH)
         conn.execute("VACUUM")
         conn.close()

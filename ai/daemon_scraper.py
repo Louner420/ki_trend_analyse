@@ -12,27 +12,30 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from database_manager import save_to_db
 from tiktok_scraper import get_trending_dict
 
+# NEU: Hole den Pfad aus der Docker-Umgebungsvariable
+# Falls lokal ausgeführt, wird das aktuelle Verzeichnis genutzt.
+DB_DIR = os.getenv("DATA_PATH", os.path.dirname(os.path.abspath(__file__)))
+
 # KONFIGURATION: Das Skript, das die KI steuert
 KI_SCRIPT_NAME = "manual_ai_test.py"
 
 def run_scraper():
-    print("[Daemon] High-Performance Scraper & AI Service gestartet...")
+    print(f"[Daemon] High-Performance Scraper gestartet (Pfad: {DB_DIR})...")
 
     while True:
-        # ==========================================
-        # TEIL 1: DATEN SAMMELN (Scraping)
-        # ==========================================
         print("\n[Daemon] ------------------------------------------------")
         print("[Daemon] Starte TikTok Multitasking (Ziel: 150 Videos)...")
         
         new_data_available = False
         try:
-            # Der Multitasking-Scraper
             tiktok_data = asyncio.run(get_trending_dict(count=150))
             
             if tiktok_data:
-                save_to_db(tiktok_data, "raw_tiktok.db", "videos")
-                print(f"[Daemon] ✅ TikTok: {len(tiktok_data)} neue Videos gespeichert.")
+                # GEÄNDERT: Nutze den absoluten Pfad zum Volume
+                db_path = os.path.join(DB_DIR, "raw_tiktok.db")
+                save_to_db(tiktok_data, db_path, "videos")
+                
+                print(f"[Daemon] ✅ TikTok: {len(tiktok_data)} Videos in {db_path} gespeichert.")
                 new_data_available = True
             else:
                 print("[Daemon] ⚠️ TikTok: Keine Daten in diesem Durchlauf.")
@@ -40,9 +43,6 @@ def run_scraper():
         except Exception as e:
             print(f"[Daemon-Error] TikTok Crash: {e}")
 
-        # ==========================================
-        # TEIL 2: DATEN VERARBEITEN (KI Training)
-        # ==========================================
         if new_data_available:
             print(f"[Daemon] 🧠 Wecke den 'Koch' (KI-Analyse: {KI_SCRIPT_NAME})...")
             
@@ -50,8 +50,6 @@ def run_scraper():
             
             if os.path.exists(script_path):
                 try:
-                    # WICHTIG: Wir nutzen sys.executable. 
-                    # Das garantiert, dass das venv-Python (mit Pandas) genutzt wird!
                     result = subprocess.run(
                         [sys.executable, script_path], 
                         capture_output=True, 
@@ -61,11 +59,9 @@ def run_scraper():
                     
                     if result.returncode == 0:
                         print("[Daemon] ✅ KI-Update erfolgreich abgeschlossen!")
-                        # Zeige die letzten Zeilen der KI-Ausgabe an
                         print(f"[KI-Log] {result.stdout.strip()[-300:]}...") 
                     else:
                         print(f"[Daemon] ❌ KI-Fehler (Code {result.returncode}):")
-                        # Zeige den Fehlertext an (hilft beim Debuggen)
                         print(result.stderr) 
                         
                 except Exception as e:
@@ -75,9 +71,6 @@ def run_scraper():
         else:
             print("[Daemon] Kein KI-Update nötig (keine neuen Daten).")
 
-        # ==========================================
-        # TEIL 3: PAUSE
-        # ==========================================
         sleep_minutes = random.randint(4, 10)
         print(f"[Daemon] 💤 Schlafe für {sleep_minutes} Minuten...")
         time.sleep(sleep_minutes * 60)
