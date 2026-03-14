@@ -1,34 +1,41 @@
-# 1. Basis-Image: Schlankes Python 3.9 (Ideal für Performance)
-ARG PYTHON_VERSION=3.11.9
-FROM python:${PYTHON_VERSION}-slim
+# 1. Basis-Image direkt definieren (vermeidet Parse-Fehler)
+FROM python:3.11.9-slim
 
 # 2. Arbeitsverzeichnis im Container festlegen
 WORKDIR /app
 
-# 3. System-Tools installieren (wichtig für einige KI/Daten-Libraries)
-# Wir löschen den Cache danach direkt, um das Image klein zu halten.
+# 3. System-Tools und Playwright-Abhängigkeiten installieren
+# Diese Bibliotheken sind zwingend erforderlich, damit der Browser im Container startet.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
-    && rm -rf /var/lib/apt/lists/*
+    libglib2.0-0 \
+    libnss3 \
+    libnspr4 \
+    libdbus-1-3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxcb1 \
+    libxkbcommon0 \
+    libx11-6 \
+    libasound2 \
+    && rm -rf /var/lib/apt/lists/* 
 
-# 4. ZUERST die globale requirements.txt kopieren
-# Docker merkt sich diesen Schritt. Wenn du nur Code änderst, 
-# wird dieser zeitintensive Schritt beim nächsten Mal übersprungen.
-COPY requirements.txt .
+# 4. Requirements kopieren und Python-Pakete installieren
+COPY requirements.txt . 
 
-# 5. Alle Libraries installieren
-# Erst pip upgraden, dann die requirements, dann die CPU-Version von Torch
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
-# 6. Das GESAMTE Projekt kopieren
-# Kopiert web/, scraper/, ki_logic/ und alle anderen Ordner.
-COPY . .
+    pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu 
 
-# 7. Port für Flask standardmäßig freigeben
-EXPOSE 5000
+# 5. Playwright Browser-Installation
+# Wir nutzen 'python -m', um den "Command not found" Fehler (127) zu umgehen.
+RUN python -m playwright install chromium --with-deps
 
-# 8. Standard-Startbefehl (wird in docker-compose.yml pro Dienst überschrieben)
-# Hier setzen wir die Web-App als Standard.
-CMD ["python", "web/run.py"]
+# 6. Das gesamte Projekt kopieren
+COPY . . 
+
+# 7. Standard-Startbefehl (wird in docker-compose überschrieben)
+CMD ["python", "-u", "web/run.py"]
