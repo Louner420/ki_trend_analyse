@@ -1,24 +1,24 @@
 services:
   # 1. Die Flask Web-App
   web-app:
-    build: .
     image: ghcr.io/louner420/ki_trend_analyse:latest
     container_name: flask_web
     ports:
-      - "8080:5002"  # Mappt Port 8080 (außen) auf 5002 (deine run.py)
+      - "8080:5002"
     volumes:
       - sqlite_data:/app/database
     environment:
-      - DATA_PATH=/app/database           # Basis-Pfad für routes.py
-      - FLASK_DEBUG=1                     # Aktiviert den Debug-Modus
+      - DATA_PATH=/app/database
+      - FLASK_DEBUG=0
+      - PYTHONUNBUFFERED=1
     restart: always
 
   # 2. Der Scraper
   scraper:
-    build: . # Nutzt dasselbe Dockerfile
     image: ghcr.io/louner420/ki_trend_analyse:latest
     container_name: ki_scraper
-    command: python ai/daemon_scraper.py
+    # Startet den Scraper direkt aus dem Image
+    command: python -u ai/daemon_scraper.py
     volumes:
       - sqlite_data:/app/database
     environment:
@@ -28,17 +28,15 @@ services:
 
   # 3. Der KI-Processor
   ki-processor:
-    build: .
     image: ghcr.io/louner420/ki_trend_analyse:latest
     container_name: ki_logic
-    command: python ai/main.py
+    command: python -u ai/main.py
     volumes:
       - sqlite_data:/app/database
     environment:
       - DATA_PATH=/app/database
+      - PYTHONUNBUFFERED=1
     restart: always
 
 volumes:
-  # Das Volume sorgt dafür, dass logs.db, users.db und trend_results.db 
-  # dauerhaft gespeichert werden und alle Container darauf zugreifen.
   sqlite_data:
