@@ -13,51 +13,6 @@
       </p>
     </div>
   </div>
-
-  {# AI-Ideen: Dummy-Daten, Vorlage für spätere KI/DB. To-Dos werden von dashboard-todos.js aus dem Wochenplan berechnet. #}
-  {% set ai_ideas = [
-    {
-      "id":"idea-1",
-      "title":"POV: First Bite (Signature Dish)",
-      "hook":"Der erste Biss entscheidet – zeig die Reaktion in 1 Sekunde.",
-      "trend":"POV",
-      "videoType":"visual",
-      "script":"0–1s: Close-up auf das Gericht.\\n1–3s: Erster Biss + Sound.\\n3–7s: Reaktion (Gast oder du).\\n7–10s: kurzer 'Warum das so gut ist' Satz.",
-      "notes":"Licht von vorne, Kamera sehr nah. Ton: Crunch/Steam. 2–3 Takes aufnehmen.",
-      "cta":"Kommentiere 'REZEPT', wenn du das Rezept willst."
-    },
-    {
-      "id":"idea-2",
-      "title":"Behind the Scenes: 30 Sekunden Küche",
-      "hook":"Niemand sieht den Stress – bis jetzt.",
-      "trend":"BTS",
-      "videoType":"visual",
-      "script":"0–2s: 'So fühlt sich Freitagabend an…' Text.\\n2–12s: schnelle Cuts: Teig, Ofen, Anrichten.\\n12–20s: Team-Moment.\\n20–30s: Final Shot am Pass.",
-      "notes":"Schnitte im Beat. 0.5x für 1–2 Shots. Keine langen Erklärungen.",
-      "cta":"Willst du mehr BTS? Dann 'MEHR' kommentieren."
-    },
-    {
-      "id":"idea-3",
-      "title":"Trend-Sound Remix: Pizza-Transformation",
-      "hook":"Wenn aus Teig 'wow' wird – im Takt.",
-      "trend":"Sound",
-      "videoType":"visual",
-      "script":"0–2s: Teigball.\\n2–6s: Toss/Stretch im Beat.\\n6–9s: Topping.\\n9–12s: Ofen rein.\\n12–15s: Cut → fertige Pizza.",
-      "notes":"Nutze einen aktuellen Sound (Trend-Seite). Schnitte auf Kick/Snare.",
-      "cta":"Speichern für später – und markier jemanden, der das lieben würde."
-    },
-    {
-      "id":"idea-4",
-      "title":"Warum unser Signature Dish immer ausverkauft ist",
-      "hook":"Viele Gäste fragen uns immer wieder warum genau dieses Gericht bei uns jeden Abend ausverkauft ist.",
-      "trend":"Talking / Story",
-      "videoType":"talking",
-      "script":"Erkläre kurz, was dieses Gericht besonders macht.\\n\\nZeige das Gericht während du sprichst und erzähle, warum Gäste es immer wieder bestellen.\\n\\nZum Schluss kannst du sagen:\\n\"Wenn du es noch nicht probiert hast, musst du es unbedingt testen.\"",
-      "notes":"Talking Head oder leichtes B-Roll vom Gericht. Authentische Erzählung.",
-      "cta":"Kommentiere \"SIGNATURE\" wenn du wissen willst, wie wir es zubereiten."
-    }
-  ] %}
-
   <div class="dash-sections">
 
     <!-- 1) BLOCK: Diese Woche (Full Width) -->
@@ -138,6 +93,14 @@
                 </div>
                 <p class="ai-idea-block-preview">{{ idea.hook }}</p>
               </button>
+            {% else %}
+              <div class="ai-idea-block ai-idea-block--empty">
+                <div class="ai-idea-block-header">
+                  <h4 class="ai-idea-block-title">Noch keine AI-Ideen vorhanden</h4>
+                  <span class="ai-idea-block-tag">Sync nötig</span>
+                </div>
+                <p class="ai-idea-block-preview">Starte zuerst den Schulserver-Sync, damit personalisierte Ideen für diesen User geladen werden.</p>
+              </div>
             {% endfor %}
           </div>
         </section>
@@ -156,22 +119,17 @@
       </div>
 
       <div class="dash-trends-mini">
-        <div class="dash-trend-mini">
-          <div class="dash-trend-title">{{ themas.Thema1 or "POV-Format" }}</div>
-          <div class="dash-trend-meta">Hype: {{ result.Trend_Score1 or "—" }} · Velocity: {{ result.Avg_Velocity1 or "—" }}</div>
-        </div>
-        <div class="dash-trend-mini">
-          <div class="dash-trend-title">{{ themas.Thema2 or "Behind the Scenes" }}</div>
-          <div class="dash-trend-meta">Hype: {{ result.Trend_Score2 or "—" }} · Velocity: {{ result.Avg_Velocity2 or "—" }}</div>
-        </div>
-        <div class="dash-trend-mini">
-          <div class="dash-trend-title">{{ themas.Thema3 or "Trend-Sound" }}</div>
-          <div class="dash-trend-meta">Hype: {{ result.Trend_Score3 or "—" }} · Velocity: {{ result.Avg_Velocity3 or "—" }}</div>
-        </div>
-        <div class="dash-trend-mini">
-          <div class="dash-trend-title">{{ themas.Thema4 or "Street Interviews" }}</div>
-          <div class="dash-trend-meta">Hype: {{ result.Trend_Score4 or "—" }} · Velocity: {{ result.Avg_Velocity4 or "—" }}</div>
-        </div>
+        {% for trend in compact_trends %}
+          <div class="dash-trend-mini">
+            <div class="dash-trend-title">{{ trend.name or "—" }}</div>
+            <div class="dash-trend-meta">Hype: {{ trend.hype or "—" }} · Velocity: {{ trend.velocity or "—" }}</div>
+          </div>
+        {% else %}
+          <div class="dash-trend-mini">
+            <div class="dash-trend-title">Noch keine Trenddaten vorhanden</div>
+            <div class="dash-trend-meta">Nach dem nächsten Sync erscheinen hier echte Videotitel.</div>
+          </div>
+        {% endfor %}
       </div>
     </section>
 
@@ -582,12 +540,85 @@
       if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
     });
 
-    // —— Modal: AI Idee überarbeiten (Chat, nur UI/Dummy) ——
+    // —— Modal: AI Idee überarbeiten (echter API-Call) ——
     const reviseModal = document.getElementById('aiReviseModal');
     const reviseBtn = document.getElementById('aiReviseIdeaBtn');
     const reviseChatDynamic = document.getElementById('aiReviseChatDynamic');
     const reviseInput = document.getElementById('aiReviseInput');
     const reviseSubmit = document.getElementById('aiReviseSubmit');
+
+    function escapeHtml(value) {
+      return String(value || '').replace(/[&<>"']/g, function (ch) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+      });
+    }
+
+    function buildOriginalIdeaText(payload) {
+      return [
+        'Titel: ' + (payload.title || '—'),
+        'Trend: ' + (payload.trend || '—'),
+        'Hook: ' + (payload.hook || '—'),
+        'Drehablauf: ' + (payload.script || '—'),
+        'Drehhinweise: ' + (payload.notes || '—'),
+        'CTA: ' + (payload.cta || '—')
+      ].join('\n');
+    }
+
+    function parseRefinedIdea(text, fallback) {
+      var out = {
+        title: fallback && fallback.title || 'AI-Idee',
+        trend: fallback && fallback.trend || '',
+        hook: fallback && fallback.hook || '',
+        script: fallback && fallback.script || '',
+        notes: fallback && fallback.notes || '',
+        cta: fallback && fallback.cta || ''
+      };
+      var lines = String(text || '').split(/\r?\n/);
+      var currentKey = '';
+      var map = {
+        'titel': 'title',
+        'title': 'title',
+        'hook': 'hook',
+        'drehablauf': 'script',
+        'dreh-leitfaden': 'script',
+        'drehleitfaden': 'script',
+        'idee': 'notes',
+        'drehhinweise': 'notes',
+        'cta': 'cta'
+      };
+
+      lines.forEach(function (rawLine) {
+        var line = rawLine.trim();
+        if (!line) return;
+        var m = line.match(/^([A-Za-zÄÖÜäöüß\- ]+):\s*(.*)$/);
+        if (m) {
+          var label = m[1].toLowerCase().trim();
+          currentKey = map[label] || '';
+          if (currentKey) {
+            out[currentKey] = (m[2] || '').trim() || out[currentKey];
+          }
+        } else if (currentKey) {
+          out[currentKey] = (out[currentKey] ? out[currentKey] + '\n' : '') + line;
+        }
+      });
+
+      return out;
+    }
+
+    function getRevisedCardHtml(parsed) {
+      return (
+        '<div class="ai-revise-revised-card">' +
+        '<h4>Überarbeitete Idee</h4>' +
+        '<div class="ai-revise-revised-section"><strong>Hook</strong><br>' + escapeHtml(parsed.hook || '—') + '</div>' +
+        '<div class="ai-revise-revised-section"><strong>Dreh-Leitfaden</strong><br>' + escapeHtml(parsed.script || '—').replace(/\n/g, '<br>') + '</div>' +
+        '<div class="ai-revise-revised-section"><strong>Drehhinweise</strong><br>' + escapeHtml(parsed.notes || '—').replace(/\n/g, '<br>') + '</div>' +
+        '<div class="ai-revise-revised-section"><strong>CTA</strong><br>' + escapeHtml(parsed.cta || '—') + '</div>' +
+        '<div class="ai-revise-revised-btns">' +
+        '<button type="button" class="td-button td-button--primary ai-revise-use-idea-btn">Diese Idee verwenden</button>' +
+        '<button type="button" class="td-button td-button--secondary ai-revise-again-btn">Nochmal überarbeiten</button>' +
+        '</div></div>'
+      );
+    }
 
     function openReviseModal() {
       if (!reviseModal) return;
@@ -613,25 +644,9 @@
       reviseChatDynamic.innerHTML = '';
     }
 
-    // Dummy-Inhalt für „Überarbeitete Idee“ (Backend ersetzt später echte KI-Antwort)
-    function getDummyRevisedCardHtml() {
-      return (
-        '<div class="ai-revise-revised-card">' +
-        '<h4>Überarbeitete Idee</h4>' +
-        '<div class="ai-revise-revised-section"><strong>Hook</strong><br>Der erste Biss entscheidet alles.</div>' +
-        '<div class="ai-revise-revised-section"><strong>Dreh-Leitfaden</strong><br>Beginne mit einer Nahaufnahme.<br><br>Zeige danach eine humorvolle Reaktion.<br><br>Halte das Video kurz und schnell.</div>' +
-        '<div class="ai-revise-revised-section"><strong>Drehhinweise</strong><br>Talking Head oder leichtes B-Roll. Kurz und humorvoll.</div>' +
-        '<div class="ai-revise-revised-section"><strong>CTA</strong><br>Kommentiere "REZEPT" wenn du es probieren willst.</div>' +
-        '<div class="ai-revise-revised-btns">' +
-        '<button type="button" class="td-button td-button--primary ai-revise-use-idea-btn">Diese Idee verwenden</button>' +
-        '<button type="button" class="td-button td-button--secondary ai-revise-again-btn">Nochmal überarbeiten</button>' +
-        '</div></div>'
-      );
-    }
-
-    function onReviseSubmit() {
+    async function onReviseSubmit() {
       var text = (reviseInput && reviseInput.value || '').trim();
-      if (!text || !reviseChatDynamic) return;
+      if (!text || !reviseChatDynamic || !currentAiPayload) return;
 
       // User-Nachricht anzeigen
       var userMsg = document.createElement('div');
@@ -643,38 +658,58 @@
       reviseInput.disabled = true;
       reviseSubmit.disabled = true;
 
-      // Kurz warten, dann „Neue Idee wird generiert…“
-      setTimeout(function () {
-        var generating = document.createElement('div');
-        generating.className = 'chat-msg chat-msg--assistant';
-        generating.textContent = 'Neue Idee wird generiert…';
-        reviseChatDynamic.appendChild(generating);
-        var chatBody = reviseChatDynamic.closest('.ai-revise-chat-body');
+      var generating = document.createElement('div');
+      generating.className = 'chat-msg chat-msg--assistant';
+      generating.textContent = 'Neue Idee wird generiert…';
+      reviseChatDynamic.appendChild(generating);
+      var chatBody = reviseChatDynamic.closest('.ai-revise-chat-body');
+      if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
+
+      try {
+        var response = await fetch('/api/ai/refine', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            feedback: text,
+            original_idea: buildOriginalIdeaText(currentAiPayload)
+          })
+        });
+
+        var json = await response.json();
+        if (!response.ok || !json.ok || !json.refined_idea) {
+          throw new Error((json && json.error) || 'AI-Antwort fehlgeschlagen.');
+        }
+
+        generating.textContent = 'Hier ist eine überarbeitete Version deiner Idee.';
+        var parsed = parseRefinedIdea(json.refined_idea, currentAiPayload);
+        var cardWrap = document.createElement('div');
+        cardWrap.innerHTML = getRevisedCardHtml(parsed);
+        reviseChatDynamic.appendChild(cardWrap.firstElementChild);
         if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
 
-        // Dummy-Antwort mit überarbeiteter Idee
-        setTimeout(function () {
-          generating.textContent = 'Hier ist eine überarbeitete Version deiner Idee.';
-          var cardWrap = document.createElement('div');
-          cardWrap.innerHTML = getDummyRevisedCardHtml();
-          reviseChatDynamic.appendChild(cardWrap.firstElementChild);
-          if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
-
-          reviseInput.disabled = false;
-          reviseSubmit.disabled = false;
-
-          // Buttons in der Card: Delegation über Modal
-          var useBtn = reviseChatDynamic.querySelector('.ai-revise-use-idea-btn');
-          var againBtn = reviseChatDynamic.querySelector('.ai-revise-again-btn');
-          if (useBtn) useBtn.addEventListener('click', closeReviseModal);
-          if (againBtn) againBtn.addEventListener('click', function () {
+        var useBtn = reviseChatDynamic.querySelector('.ai-revise-use-idea-btn');
+        var againBtn = reviseChatDynamic.querySelector('.ai-revise-again-btn');
+        if (useBtn) {
+          useBtn.addEventListener('click', function () {
+            currentAiPayload = Object.assign({}, currentAiPayload, parsed);
+            openModal(currentAiPayload);
+            closeReviseModal();
+          });
+        }
+        if (againBtn) {
+          againBtn.addEventListener('click', function () {
             resetReviseChat();
             reviseInput.disabled = false;
             reviseSubmit.disabled = false;
             reviseInput.focus();
           });
-        }, 800);
-      }, 1000);
+        }
+      } catch (err) {
+        generating.textContent = 'AI-Überarbeitung fehlgeschlagen: ' + (err && err.message ? err.message : 'Unbekannter Fehler');
+      } finally {
+        reviseInput.disabled = false;
+        reviseSubmit.disabled = false;
+      }
     }
 
     if (reviseBtn) reviseBtn.addEventListener('click', openReviseModal);

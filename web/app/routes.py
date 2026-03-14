@@ -4,16 +4,26 @@ import re
 import time
 import traceback
 import os
+import json
+import urllib.request
+import urllib.error
 from flask import Flask, request, g
+from flask_socketio import emit
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.exceptions import HTTPException
 
 # Alle DBs im Projektordner (funktioniert auf Mac und Windows)
-BASE_DIR = os.getenv('DATA_PATH', '/app/database')
+_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+_WEB_DIR = os.path.dirname(_APP_DIR)
+_PROJECT_ROOT = os.path.dirname(_WEB_DIR)
+BASE_DIR = os.getenv('DATA_PATH', os.path.join(_PROJECT_ROOT, 'database'))
 LOGS_DB = os.path.join(BASE_DIR, "logs.db")
 ERROR_DB = os.path.join(BASE_DIR, "error.db")
 USERS_DB = os.path.join(BASE_DIR, "users.db")
+AI_API_BASE_URL = os.getenv('AI_API_BASE_URL', 'http://127.0.0.1:5000').rstrip('/')
+AI_API_TIMEOUT_SECONDS = int(os.getenv('AI_API_TIMEOUT_SECONDS', '60'))
 
 
 def _ensure_users_table(conn):
@@ -147,9 +157,11 @@ class DB_table_result():
         query = "SELECT avg_velocity FROM top10_general WHERE rank = ?"
         self.cursor.execute(query, (rank,))
         result = self.cursor.fetchone()
-        rounded_result = float(result[0]) if result else None
-        rounded_result = round(rounded_result, 2) if rounded_result else None
-        return rounded_result
+        try:
+            velocity_val = float(result[0]) if result and result[0] is not None else 0.0
+        except (TypeError, ValueError):
+            velocity_val = 0.0
+        return round(velocity_val, 2)
 
     def cluster_size(self, rank):
         rank = int(rank)
@@ -179,100 +191,84 @@ class DB_table_raw():
     def __init__(self, db_path="raw_tiktok.db"):
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.conn.cursor()
+        self._video_columns = self._load_table_columns("videos")
+
+    def _load_table_columns(self, table_name):
+        try:
+            self.cursor.execute(f"PRAGMA table_info({table_name})")
+            return {row[1] for row in self.cursor.fetchall()}
+        except Exception:
+            return set()
+
+    def _fetch_value(self, column, rowid):
+        index = max(int(rowid) - 1, 0)
+        if column not in self._video_columns:
+            return None
+        self.cursor.execute(
+            f"SELECT {column} FROM videos ORDER BY CAST(COALESCE(views, '0') AS REAL) DESC LIMIT 1 OFFSET ?",
+            (index,)
+        )
+        result = self.cursor.fetchone()
+        return result[0] if result else None
 
     def caption(self, rowid):
-        self.cursor.execute(
-            "SELECT caption FROM top10_general WHERE rowid = ?",
-            (int(rowid),)
-        )
-        result = self.cursor.fetchone()
-        return result[0] if result else None
+        return self._fetch_value("caption", rowid)
 
     def hashtags(self, rowid):
-        self.cursor.execute(
-            "SELECT hashtags FROM top10_general WHERE rowid = ?",
-            (int(rowid),)
-        )
-        result = self.cursor.fetchone()
-        return result[0] if result else None
+        return self._fetch_value("hashtags", rowid)
 
     def views(self, rowid):
-        self.cursor.execute(
-            "SELECT views FROM top10_general WHERE rowid = ?",
-            (int(rowid),)
-        )
-        result = self.cursor.fetchone()
-        return result[0] if result else None
+        return self._fetch_value("views", rowid)
 
     def likes(self, rowid):
-        self.cursor.execute(
-            "SELECT likes FROM top10_general WHERE rowid = ?",
-            (int(rowid),)
-        )
-        result = self.cursor.fetchone()
-        return result[0] if result else None
+        return self._fetch_value("likes", rowid)
 
     def comments(self, rowid):
-        self.cursor.execute(
-            "SELECT comments FROM top10_general WHERE rowid = ?",
-            (int(rowid),)
-        )
-        result = self.cursor.fetchone()
-        return result[0] if result else None
+        return self._fetch_value("comments", rowid)
 
     def shares(self, rowid):
-        self.cursor.execute(
-            "SELECT shares FROM top10_general WHERE rowid = ?",
-            (int(rowid),)
-        )
-        result = self.cursor.fetchone()
-        return result[0] if result else None
+        return self._fetch_value("shares", rowid)
 
     def trend_score(self, rowid):
-        self.cursor.execute(
-            "SELECT trend_score FROM top10_general WHERE rowid = ?",
-            (int(rowid),)
-            
-        )
-        result = self.cursor.fetchone()
-        result = float(result[0]) if result else None
+        result = self._fetch_value("trend_score", rowid)
+        if result is None:
+            views = self.views(rowid)
+            likes = self.likes(rowid)
+            comments = self.comments(rowid)
+            shares = self.shares(rowid)
+            try:
+                score = (float(views or 0) * 0.4) + (float(likes or 0) * 0.2) + (float(comments or 0) * 0.2) + (float(shares or 0) * 0.2)
+                result = score
+            except (TypeError, ValueError):
+                result = None
+        result = float(result) if result is not None else None
         result = result//1000 if result else None
-        result = str(result).strip("(",")") if result else None
+        result = str(result).strip("()") if result else None
         return result if result else None
 
     def velocity(self, rowid):
-        self.cursor.execute(
-            "SELECT velocity FROM top10_general WHERE rowid = ?",
-            (int(rowid),)
-        )
-        result = self.cursor.fetchone()
-        result = float(result[0]) if result else None
+        result = None
+        views = self.views(rowid)
+        upload_date = self.upload_date(rowid)
+        try:
+            upload_ts = pd.to_datetime(upload_date, errors='coerce')
+            if pd.notna(upload_ts):
+                age_hours = max((pd.Timestamp.now() - upload_ts).total_seconds() / 3600, 0.1)
+                result = float(views or 0) / age_hours
+        except Exception:
+            result = None
+        result = float(result) if result is not None else None
         result = round(result, 2) if result else None
         return result if result else None
 
     def sentiment(self, rowid):
-        self.cursor.execute(
-            "SELECT sentiment FROM top10_general WHERE rowid = ?",
-            (int(rowid),)
-        )
-        result = self.cursor.fetchone()
-        return result[0] if result else None
+        return None
 
     def creator(self, rowid):
-        self.cursor.execute(
-            "SELECT creator FROM top10_general WHERE rowid = ?",
-            (int(rowid),)
-        )
-        result = self.cursor.fetchone()
-        return result[0] if result else None
+        return self._fetch_value("creator", rowid)
 
     def upload_date(self, rowid):
-        self.cursor.execute(
-            "SELECT upload_date FROM top10_general WHERE rowid = ?",
-            (int(rowid),)
-        )
-        result = self.cursor.fetchone()
-        return result[0] if result else None
+        return self._fetch_value("upload_date", rowid)
 
 
 Num_res=DB_table_result(os.path.join(BASE_DIR, "trend_results.db"))
@@ -320,7 +316,8 @@ def require_login():
 
 @bp.after_request
 def log_request(response):
-    duration = round(time.time() - g.start_time, 4)
+    start = getattr(g, "start_time", None)
+    duration = round(time.time() - start, 4) if start is not None else 0
 
     write_log(
         request.remote_addr,
@@ -334,6 +331,9 @@ def log_request(response):
     
 @bp.errorhandler(Exception)
 def handle_exception(e):
+    if isinstance(e, HTTPException):
+        return e
+
     start = getattr(g, "start_time", None)
     duration = round(time.time() - start, 4) if start is not None else 0
     try:
@@ -364,10 +364,336 @@ def thema(i):
                 hashtags.remove(i)   
             return hashtags[0] if True else "No Hashtags"
 def engament(i):
-    eng=like(i)/view(i)
-    eng=eng-0.0000000001
-    eng=round(eng,4)
-    return eng*1000
+    try:
+        likes_val = float(like(i) or 0)
+        views_val = float(view(i) or 0)
+        if views_val <= 0:
+            return 0
+        eng = likes_val / views_val
+        eng = eng - 0.0000000001
+        eng = round(eng, 4)
+        return eng * 1000
+    except (TypeError, ValueError, ZeroDivisionError):
+        return 0
+
+
+def _safe_text(value):
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _short_text(value, limit=140):
+    text = _safe_text(value)
+    if len(text) <= limit:
+        return text
+    return text[: max(limit - 1, 0)].rstrip() + "..."
+
+
+def _parse_ai_guide(guide_text):
+    sections = {
+        "title": "",
+        "videoformat": "",
+        "hook": "",
+        "idee": "",
+        "drehablauf": "",
+        "drehhinweise": "",
+        "cta": "",
+    }
+    current_key = ""
+    aliases = {
+        "titel": "title",
+        "title": "title",
+        "videoformat": "videoformat",
+        "format": "videoformat",
+        "hook": "hook",
+        "idee": "idee",
+        "drehablauf": "drehablauf",
+        "dreh-leitfaden": "drehablauf",
+        "drehleitfaden": "drehablauf",
+        "drehhinweise": "drehhinweise",
+        "cta": "cta",
+    }
+
+    for raw_line in _safe_text(guide_text).splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        match = re.match(r"^([A-Za-zÄÖÜäöüß\- ]+):\s*(.*)$", line)
+        if match:
+            label = match.group(1).strip().lower()
+            current_key = aliases.get(label, "")
+            if current_key:
+                sections[current_key] = match.group(2).strip()
+            continue
+        if current_key:
+            existing = sections[current_key]
+            sections[current_key] = f"{existing}\n{line}".strip()
+
+    return sections
+
+
+def _build_ai_idea_payload(record, fallback_id):
+    record = record or {}
+    parsed = _parse_ai_guide(record.get("ai_guide"))
+    trend_label = _safe_text(record.get("trend_label"))
+    trend_title = _safe_text(record.get("caption"))
+    notes = parsed.get("drehhinweise") or parsed.get("idee") or trend_title
+    script = parsed.get("drehablauf") or parsed.get("idee") or ""
+    hook = parsed.get("hook") or trend_title
+    title = _safe_text(record.get("ai_title")) or parsed.get("title") or trend_label or "AI-Idee"
+    video_format = parsed.get("videoformat") or "Trend-Remix"
+    sentiment_val = record.get("ai_sentiment")
+    try:
+        sentiment_val = int(float(sentiment_val)) if sentiment_val is not None else None
+    except (TypeError, ValueError):
+        sentiment_val = None
+    return {
+        "id": _safe_text(record.get("video_id")) or f"idea-{fallback_id}",
+        "title": title,
+        "hook": hook,
+        "trend": trend_label or video_format,
+        "videoType": "talking" if "talking" in video_format.lower() else "visual",
+        "script": script,
+        "notes": notes,
+        "cta": parsed.get("cta") or "",
+        "sentiment": sentiment_val,
+        "lifecycle": _safe_text(record.get("lifecycle_phase")),
+        "cluster_size": record.get("cluster_size"),
+    }
+
+
+HDBSCAN_NICHES = ["general", "gastro", "fitness", "tech", "fashion", "business"]
+
+def _load_hdbscan_trends(niche="general"):
+    """Lade HDBSCAN-Cluster-Ergebnisse aus trend_results.db für eine Nische."""
+    if niche not in HDBSCAN_NICHES:
+        niche = "general"
+    table = f"top10_{niche}"
+    db_path = os.path.join(BASE_DIR, "trend_results.db")
+    if not os.path.exists(db_path):
+        return []
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            f"SELECT rank, caption, trend_score, lifecycle_phase, "
+            f"avg_velocity, cluster_size, niche_relevance, updated_at "
+            f"FROM [{table}] ORDER BY rank"
+        ).fetchall()
+        conn.close()
+    except Exception:
+        return []
+    cards = []
+    for row in rows:
+        velocity_val = float(row["avg_velocity"] or 0)
+        engagement_val = float(row["niche_relevance"] or 0)
+        cards.append({
+            "idx": int(row["rank"]),
+            "name": _short_text(row["caption"], 120) or f"Trend {row['rank']}",
+            "hype": float(row["trend_score"]) if row["trend_score"] else 0,
+            "velocity": velocity_val,
+            "velocity_num": velocity_val,
+            "engagement": round(engagement_val * 100, 1) if engagement_val < 1 else round(engagement_val, 1),
+            "engagement_num": round(engagement_val * 100, 1) if engagement_val < 1 else round(engagement_val, 1),
+            "sentiment": "—",
+            "lifecycle": _safe_text(row["lifecycle_phase"]),
+            "cluster_size": int(row["cluster_size"] or 0),
+            "updated_at": row["updated_at"],
+            "opp_num": (velocity_val / 1000.0) + engagement_val,
+        })
+    return cards
+
+
+def _build_hdbscan_sections(cards):
+    """Baut trend_sections aus HDBSCAN-Karten auf."""
+    if not cards:
+        return None
+    top_by_hype = sorted(cards, key=lambda c: c["hype"], reverse=True)
+    rising = sorted(cards, key=lambda c: c["velocity_num"], reverse=True)
+    opportunities = sorted(cards, key=lambda c: c["opp_num"], reverse=True)
+    # Lifecycle-basierte Auswahl
+    emerging = [c for c in cards if "EMERGING" in (c.get("lifecycle") or "")]
+    peaking = [c for c in cards if "PEAKING" in (c.get("lifecycle") or "")]
+    return {
+        "top_trends": top_by_hype[:4],
+        "rising_trends": rising[:4],
+        "opportunities": opportunities[:4],
+        "global_trends": top_by_hype[4:8],
+        "details": top_by_hype,
+        "emerging": emerging,
+        "peaking": peaking,
+    }
+
+
+def _build_ai_ideas(payload):
+    records = []
+    if isinstance(payload, dict):
+        records = payload.get("ai_video_ideas") or []
+    ideas = []
+    for idx, record in enumerate(records, start=1):
+        ideas.append(_build_ai_idea_payload(record, idx))
+    return ideas
+
+
+def _trend_card_from_record(record, fallback_idx, ai_title_map=None):
+    record = record or {}
+    ai_title_map = ai_title_map or {}
+    idx = record.get("rank") or fallback_idx
+    try:
+        idx = int(idx)
+    except (TypeError, ValueError):
+        idx = fallback_idx
+    # Trend-Label hat Prioritaet (Cluster-Name), danach Fallbacks
+    name = (
+        _safe_text(record.get("trend_label"))
+        or _safe_text(record.get("ai_title"))
+        or f"Trend {idx}"
+    )
+    sentiment_val = record.get("sentiment") or record.get("ai_sentiment")
+    if sentiment_val is not None and sentiment_val != "":
+        try:
+            sentiment_val = int(float(sentiment_val))
+        except (TypeError, ValueError):
+            sentiment_val = None
+    lifecycle = _safe_text(record.get("lifecycle_phase"))
+    cluster_size = record.get("cluster_size")
+    return {
+        "idx": idx,
+        "name": name,
+        "hype": record.get("trend_score"),
+        "velocity": record.get("avg_velocity"),
+        "velocity_num": float(record.get("avg_velocity") or 0),
+        "engagement": record.get("avg_engagement"),
+        "engagement_num": float(record.get("avg_engagement") or 0),
+        "sentiment": sentiment_val if sentiment_val is not None else "—",
+        "lifecycle": lifecycle,
+        "cluster_size": cluster_size,
+        "opp_num": (float(record.get("avg_velocity") or 0) / 1000.0) + float(record.get("avg_engagement") or 0),
+    }
+
+
+def _legacy_trend_cards(result, raw, engaments):
+    cards = []
+    for idx in range(1, 11):
+        cards.append({
+            "idx": idx,
+            "name": _safe_text(result.get(f"Caption{idx}")) or _safe_text(raw.get(f"Caption_raw{idx}")) or f"Trend {idx}",
+            "hype": result.get(f"Trend_Score{idx}"),
+            "velocity": result.get(f"Avg_Velocity{idx}"),
+            "velocity_num": float(result.get(f"Avg_Velocity{idx}") or 0),
+            "engagement": engaments.get(f"Engament{idx}"),
+            "engagement_num": float(engaments.get(f"Engament{idx}") or 0),
+            "sentiment": raw.get(f"Sentiment{idx}") or "—",
+            "opp_num": (float(result.get(f"Avg_Velocity{idx}") or 0) / 1000.0) + float(engaments.get(f"Engament{idx}") or 0),
+        })
+    return cards
+
+
+def _load_user_trends_payload():
+    user_id = _get_user_id_from_session()
+    if not user_id:
+        return {}
+    json_path = os.path.join(BASE_DIR, f"trends_user_{user_id}.json")
+    if not os.path.exists(json_path):
+        return {}
+    try:
+        with open(json_path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except Exception:
+        return {}
+
+
+def _build_trend_sections(payload, result, raw, engaments):
+    if isinstance(payload, dict) and payload.get("top_trends"):
+        top_trends = [_trend_card_from_record(item, idx) for idx, item in enumerate(payload.get("top_trends") or [], start=1)]
+        rising_trends = [_trend_card_from_record(item, idx) for idx, item in enumerate(payload.get("rising_trends") or [], start=1)]
+        opportunities = [_trend_card_from_record(item, idx) for idx, item in enumerate(payload.get("opportunities") or [], start=1)]
+        global_trends = [_trend_card_from_record(item, idx) for idx, item in enumerate(payload.get("global_trends") or [], start=1)]
+        return {
+            "top_trends": top_trends[:4],
+            "rising_trends": rising_trends[:4],
+            "opportunities": opportunities[:4],
+            "global_trends": global_trends[:4],
+            "details": top_trends,
+        }
+
+    legacy_cards = _legacy_trend_cards(result, raw, engaments)
+    top_by_hype = sorted(legacy_cards, key=lambda item: float(item.get("hype") or 0), reverse=True)
+    rising = sorted(legacy_cards, key=lambda item: float(item.get("velocity_num") or 0), reverse=True)
+    opportunities = sorted(legacy_cards, key=lambda item: float(item.get("opp_num") or 0), reverse=True)
+    return {
+        "top_trends": top_by_hype[:4],
+        "rising_trends": rising[:4],
+        "opportunities": opportunities[:4],
+        "global_trends": legacy_cards[4:8] if len(legacy_cards) >= 8 else legacy_cards[4:],
+        "details": legacy_cards,
+    }
+
+
+def _build_dashboard_trends(payload, result, raw, engaments):
+    sections = _build_trend_sections(payload, result, raw, engaments)
+    return sections.get("top_trends", [])[:4]
+
+
+def register_socket_events(socketio):
+    @socketio.on("ai_generate_idea")
+    def handle_ai_generate_idea(data):
+        if not session.get("logged_in"):
+            emit("ai_generate_error", {"error": "Nicht eingeloggt."})
+            return
+
+        topic = _safe_text((data or {}).get("topic"))
+        requested_format = _safe_text((data or {}).get("format"))
+        user_id = _get_user_id_from_session()
+        if not user_id:
+            emit("ai_generate_error", {"error": "User konnte nicht ermittelt werden."})
+            return
+        if not topic:
+            emit("ai_generate_error", {"error": "Bitte gib zuerst ein Thema an."})
+            return
+
+        emit("ai_generate_status", {"message": "KI-Idee wird am Schulserver generiert..."})
+        payload = {
+            "user_id": user_id,
+            "topic": topic,
+            "requested_format": requested_format,
+        }
+
+        try:
+            req = urllib.request.Request(
+                f"{AI_API_BASE_URL}/api/spontaneous",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=AI_API_TIMEOUT_SECONDS) as response:
+                upstream_raw = response.read().decode("utf-8")
+        except urllib.error.HTTPError as exc:
+            try:
+                body = exc.read().decode("utf-8")
+                upstream_json = json.loads(body) if body else {}
+                error_message = upstream_json.get("error") or f"AI-Server Fehler ({exc.code})"
+            except Exception:
+                error_message = f"AI-Server Fehler ({exc.code})"
+            emit("ai_generate_error", {"error": error_message})
+            return
+        except Exception:
+            emit("ai_generate_error", {"error": "AI-Server ist aktuell nicht erreichbar."})
+            return
+
+        try:
+            upstream_json = json.loads(upstream_raw)
+        except Exception:
+            emit("ai_generate_error", {"error": "Ungültige Antwort vom AI-Server."})
+            return
+
+        idea_text = _safe_text(upstream_json.get("idea"))
+        if not idea_text:
+            emit("ai_generate_error", {"error": upstream_json.get("error") or "AI-Antwort ist leer."})
+            return
+
+        emit("ai_generate_result", {"idea": idea_text, "source": upstream_json.get("source") or "llm"})
 
 
 def _empty_index_data():
@@ -404,13 +730,17 @@ def index():
         return redirect(url_for("main.login"))
     if not session.get("onboarding_done", True):
         return redirect(url_for("main.onboarding"))
+    user_trends_payload = _load_user_trends_payload()
     # Bei fehlender/leerer Trend-DB leere Dashboard-Daten verwenden (kein 500)
     try:
         Cap(1)
     except Exception:
         result, raw, themas, engaments = _empty_index_data()
+        ai_ideas = _build_ai_ideas(user_trends_payload)
+        compact_trends = _build_dashboard_trends(user_trends_payload, result, raw, engaments)
         return render_template("index.html", title="Dashboard",
-            result=result, raw=raw, themas=themas, engaments=engaments, avg_velocity10=0)
+            result=result, raw=raw, themas=themas, engaments=engaments, avg_velocity10=0,
+            ai_ideas=ai_ideas, compact_trends=compact_trends)
     result={
         "Caption1": Cap(1),
         "Trend_Score1": trend(1),
@@ -419,13 +749,13 @@ def index():
         "Niche_Relevance1": nich(1),
         "Cluster_Size1": clus(1),
         "Avg_Velocity1": avgvel(1),
-        "Caption2": Cap(12),
-        "Trend_Score2": trend(12),
-        "Relevance2": rel(12),
-        "Updated_At2": update(12),       
-        "Niche_Relevance2": nich(12),
-        "Cluster_Size2": clus(12),
-        "Avg_Velocity2": avgvel(12),
+        "Caption2": Cap(2),
+        "Trend_Score2": trend(2),
+        "Relevance2": rel(2),
+        "Updated_At2": update(2),       
+        "Niche_Relevance2": nich(2),
+        "Cluster_Size2": clus(2),
+        "Avg_Velocity2": avgvel(2),
         "Caption3": Cap(3),
         "Trend_Score3": trend(3),
         "Relevance3": rel(3),
@@ -597,7 +927,7 @@ def index():
     }
     themas={
         "Thema1": thema(1),
-        "Thema2": thema(12),
+        "Thema2": thema(2),
         "Thema3": thema(3),
         "Thema4": thema(4),
         "Thema5": thema(5),
@@ -619,15 +949,19 @@ def index():
         "Engament9": engament(9),
         "Engament10": engament(10)
     }
-    avg_velocity10=avgvel(1)+avgvel(3)+avgvel(4)+avgvel(5)+avgvel(6)+avgvel(7)+avgvel(8)+avgvel(9)+avgvel(10)
+    avg_velocity10=avgvel(1)+avgvel(2)+avgvel(3)+avgvel(4)+avgvel(5)+avgvel(6)+avgvel(7)+avgvel(8)+avgvel(9)+avgvel(10)
     avg_velocity10=avg_velocity10/10
     avg_velocity10=round(avg_velocity10,2)
+    ai_ideas = _build_ai_ideas(user_trends_payload)
+    compact_trends = _build_dashboard_trends(user_trends_payload, result, raw, engaments)
     return render_template("index.html", title="Dashboard",
         result=result,
         raw=raw,
         themas=themas,
         engaments=engaments,
-        avg_velocity10=avg_velocity10
+        avg_velocity10=avg_velocity10,
+        ai_ideas=ai_ideas,
+        compact_trends=compact_trends
     )
 
 @bp.route("/planner")
@@ -671,229 +1005,51 @@ def trends():
         return redirect(url_for("main.login"))
     if not session.get("onboarding_done", True):
         return redirect(url_for("main.onboarding"))
-    try:
-        Cap(1)
-    except Exception:
-        result, raw, themas, engaments = _empty_index_data()
-        return render_template("trends.html", title="Trends Explorer",
-            result=result, raw=raw, themas=themas, engaments=engaments, avg_velocity10=0)
-    result={
-        "Caption1": Cap(1),
-        "Trend_Score1": trend(1),
-        "Relevance1": rel(1),
-        "Updated At1": update(1),
-        "Niche_Relevance1": nich(1),
-        "Cluster_Size1": clus(1),
-        "Avg_Velocity1": avgvel(12),
-        "Caption2": Cap(12),
-        "Trend_Score2": trend(12),
-        "Relevance2": rel(12),
-        "Updated_At2": update(12),       
-        "Niche_Relevance2": nich(12),
-        "Cluster_Size2": clus(12),
-        "Avg_Velocity2": avgvel(12),
-        "Caption3": Cap(3),
-        "Trend_Score3": trend(3),
-        "Relevance3": rel(3),
-        "Updated_At3": update(3),
-        "Niche_Relevance3": nich(3),
-        "Cluster_Size3": clus(3),
-        "Avg_Velocity3": avgvel(3),
-        "Caption4": Cap(4),
-        "Trend_Score4": trend(4),
-        "Relevance4": rel(4),
-        "Updated_At4": update(4),
-        "Niche_Relevance4": nich(4),
-        "Cluster_Size4": clus(4),
-        "Avg_Velocity4": avgvel(4),
-        "Caption5": Cap(5),
-        "Trend_Score5": trend(5),
-        "Relevance5": rel(5),
-        "Updated_At5": update(5),
-        "Niche_Relevance5": nich(5),
-        "Cluster_Size5": clus(5),
-        "Avg_Velocity5": avgvel(5),
-        "Caption6": Cap(6),
-        "Trend_Score6": trend(6),
-        "Relevance6": rel(6),
-        "Updated_At6": update(6),
-        "Niche_Relevance6": nich(6),
-        "Cluster_Size6": clus(6),
-        "Avg_Velocity6": avgvel(6),
-        "Caption7": Cap(7),
-        "Trend_Score7": trend(7),
-        "Relevance7": rel(7),
-        "Updated_At7": update(7),
-        "Niche_Relevance7": nich(7),
-        "Cluster_Size7": clus(7),
-        "Avg_Velocity7": avgvel(7),
-        "Caption8": Cap(8),
-        "Trend_Score8": trend(8),
-        "Relevance8": rel(8),
-        "Updated_At8": update(8),
-        "Niche_Relevance8": nich(8),
-        "Cluster_Size8": clus(8),
-        "Avg_Velocity8": avgvel(8),
-        "Caption9": Cap(9),
-        "Trend_Score9": trend(9),
-        "Relevance9": rel(9),
-        "Updated_At9": update(9),
-        "Niche_Relevance9": nich(9),
-        "Cluster_Size9": clus(9),
-        "Avg_Velocity9": avgvel(9),
-        "Caption10": Cap(10),
-        "Trend_Score10": trend(10),
-        "Relevance10": rel(10),
-        "Updated_At10": update(10),
-        "Niche_Relevance10": nich(10),
-        "Cluster_Size10": clus(10),
-        "Avg_Velocity10": avgvel(10)
-    }
-    raw={
-        "Caption_raw1": Cap_raw(1),
-        "Hashtags1": hashtag(1),
-        "Views1": view(1),
-        "Likes1": like(1),
-        "Comments1": comment(1),
-        "Shares1": share(1),
-        "Trend_Score_raw1": trend_raw(1),
-        "Velocity1": velocity(1),
-        "Sentiment1": sentiment(1),
-        "Creator1": creator(1),
-        "Upload Date1": upload(1),
-        "Caption_raw2": Cap_raw(2),
-        "Hashtags2": hashtag(2),
-        "Views2": view(2),
-        "Likes2": like(2),
-        "Comments2": comment(2),
-        "Shares2": share(2),
-        "Trend_Score_raw2": trend_raw(2),
-        "Velocity2": velocity(2),
-        "Sentiment2": sentiment(2),
-        "Creator2": creator(2),
-        "Upload Date2": upload(2),
-        "Caption_raw3": Cap_raw(3),
-        "Hashtags3": hashtag(3),
-        "Views3": view(3),
-        "Likes3": like(3),
-        "Comments3": comment(3),
-        "Shares3": share(3),
-        "Trend_Score_raw3": trend_raw(3),
-        "Velocity3": velocity(3),
-        "Sentiment3": sentiment(3),
-        "Creator3": creator(3),
-        "Upload Date3": upload(3),
-        "Caption_raw4": Cap_raw(4),
-        "Hashtags4": hashtag(4),
-        "Views4": view(4),
-        "Likes4": like(4),
-        "Comments4": comment(4),
-        "Shares4": share(4),
-        "Trend_Score_raw4": trend_raw(4),
-        "Velocity4": velocity(4),
-        "Sentiment4": sentiment(4),
-        "Creator4": creator(4),
-        "Upload Date4": upload(4),
-        "Caption_raw5": Cap_raw(5),
-        "Hashtags5": hashtag(5),
-        "Views5": view(5),
-        "Likes5": like(5),
-        "Comments5": comment(5),
-        "Shares5": share(5),
-        "Trend_Score_raw5": trend_raw(5),
-        "Velocity5": velocity(5),
-        "Sentiment5": sentiment(5),
-        "Creator5": creator(5),
-        "Upload_Date5": upload(5),
-        "Caption_raw6": Cap_raw(6),
-        "Hashtags6": hashtag(6),
-        "Views6": view(6),
-        "Likes6": like(6),
-        "Comments6": comment(6),
-        "Shares6": share(6),
-        "Trend_Score_raw6": trend_raw(6),
-        "Velocity6": velocity(6),
-        "Sentiment6": sentiment(6),
-        "Creator6": creator(6),
-        "Upload_Date6": upload(6),
-        "Caption_raw7": Cap_raw(7),
-        "Hashtags7": hashtag(7),
-        "Views7": view(7),
-        "Likes7": like(7),
-        "Comments7": comment(7),
-        "Shares7": share(7),
-        "Trend_Score_raw7": trend_raw(7),
-        "Velocity7": velocity(7),
-        "Sentiment7": sentiment(7),
-        "Creator7": creator(7),
-        "Upload_Date7": upload(7),
-        "Caption_raw8": Cap_raw(8),
-        "Hashtags8": hashtag(8),
-        "Views8": view(8),
-        "Likes8": like(8),
-        "Comments8": comment(8),
-        "Shares8": share(8),
-        "Trend_Score_raw8": trend_raw(8),
-        "Velocity8": velocity(8),
-        "Sentiment8": sentiment(8),
-        "Creator8": creator(8),
-        "Upload_Date8": upload(8),
-        "Caption_raw9": Cap_raw(9),
-        "Hashtags9": hashtag(9),
-        "Views9": view(9),
-        "Likes9": like(9),
-        "Comments9": comment(9),
-        "Shares9": share(9),
-        "Trend_Score_raw9": trend_raw(9),
-        "Velocity9": velocity(9),
-        "Sentiment9": sentiment(9),
-        "Creator9": creator(9),
-        "Upload_Date9": upload(9),
-        "Caption_raw10": Cap_raw(10),
-        "Hashtags10": hashtag(10),
-        "Views10": view(10),
-        "Likes10": like(10),
-        "Comments10": comment(10),
-        "Shares10": share(10),
-        "Trend_Score_raw10": trend_raw(10),
-        "Velocity10": velocity(10),
-        "Sentiment10": sentiment(10),   
-        "Creator10": creator(10),
-        "Upload_Date10": upload(10)
-    }
-    themas={
-        "Thema1": thema(1),
-        "Thema2": thema(12),
-        "Thema3": thema(3),
-        "Thema4": thema(4),
-        "Thema5": thema(5),
-        "Thema6": thema(6),
-        "Thema7": thema(7),
-        "Thema8": thema(8),
-        "Thema9": thema(9),
-        "Thema10": thema(10)
-    }
-    engaments={
-        "Engament1": engament(1),
-        "Engament2": engament(2),
-        "Engament3": engament(3),
-        "Engament4": engament(4),
-        "Engament5": engament(5),
-        "Engament6": engament(6),
-        "Engament7": engament(7),
-        "Engament8": engament(8),
-        "Engament9": engament(9),
-        "Engament10": engament(10)
-    }
-    avg_velocity10=avgvel(1)+avgvel(3)+avgvel(4)+avgvel(5)+avgvel(6)+avgvel(7)+avgvel(8)+avgvel(9)+avgvel(10)
-    avg_velocity10=avg_velocity10/10
-    avg_velocity10=round(avg_velocity10,2)
+
+    # Nische aus Query-Parameter (Default: general)
+    niche = request.args.get("niche", "general").lower().strip()
+    if niche not in HDBSCAN_NICHES:
+        niche = "general"
+
+    # 1) HDBSCAN-Daten laden (Hauptquelle)
+    hdbscan_cards = _load_hdbscan_trends(niche)
+    hdbscan_sections = _build_hdbscan_sections(hdbscan_cards)
+
+    # 2) User-spezifische AI-Ideen aus JSON
+    user_trends_payload = _load_user_trends_payload()
+    ai_ideas = _build_ai_ideas(user_trends_payload)
+
+    # 3) Fallback: Legacy-Daten falls HDBSCAN leer
+    if hdbscan_sections:
+        trend_sections = hdbscan_sections
+    else:
+        try:
+            Cap(1)
+            result, raw, themas, engaments = _empty_index_data()
+            for i in range(1, 11):
+                result[f"Caption{i}"] = Cap(i)
+                result[f"Trend_Score{i}"] = trend(i)
+                result[f"Avg_Velocity{i}"] = avgvel(i)
+            trend_sections = _build_trend_sections(user_trends_payload, result, raw, engaments)
+        except Exception:
+            result, raw, themas, engaments = _empty_index_data()
+            trend_sections = _build_trend_sections(user_trends_payload, result, raw, engaments)
+
+    # Durchschnitts-Velocity
+    avg_velocity10 = 0
+    details = trend_sections.get("details", [])
+    if details:
+        vel_sum = sum(float(c.get("velocity_num") or 0) for c in details)
+        avg_velocity10 = round(vel_sum / len(details), 2)
+
     return render_template("trends.html", title="Trends Explorer",
-        result=result,
-        raw=raw,
-        themas=themas,
-        engaments=engaments,
-        avg_velocity10=avg_velocity10
+        trend_sections=trend_sections,
+        ai_ideas=ai_ideas,
+        avg_velocity10=avg_velocity10,
+        active_niche=niche,
+        niches=HDBSCAN_NICHES,
+        hdbscan_active=bool(hdbscan_sections),
+        updated_at=hdbscan_cards[0]["updated_at"] if hdbscan_cards else None,
     )
 
 
@@ -994,13 +1150,68 @@ def onboarding_post():
             ))
             conn.commit()
             conn.close()
-        except Exception:
-            pass  # Session-Flag trotzdem setzen, Logging optional
+        except Exception as exc:
+            current_app.logger.error("Onboarding DB-Fehler fuer user %s: %s", user_id, exc)
 
     session["onboarding_done"] = True
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"ok": True})
     return redirect(url_for("main.index"))
+
+
+@bp.route("/api/ai/refine", methods=["POST"])
+@limiter.limit("20 per minute")
+@limiter.limit("200 per day")
+def api_ai_refine():
+    """Leitet AI-Ideen-Überarbeitung an den AI-Webserver weiter."""
+    if not session.get("logged_in"):
+        return jsonify({"ok": False, "error": "Nicht eingeloggt."}), 401
+
+    payload = request.get_json(silent=True) or {}
+    feedback = (payload.get("feedback") or "").strip()
+    original_idea = (payload.get("original_idea") or "").strip()
+    if not feedback or not original_idea:
+        return jsonify({"ok": False, "error": "Fehlende Daten."}), 400
+
+    user_id = _get_user_id_from_session()
+    if user_id is None:
+        return jsonify({"ok": False, "error": "User konnte nicht ermittelt werden."}), 400
+
+    body = json.dumps({
+        "user_id": user_id,
+        "original_idea": original_idea,
+        "feedback": feedback,
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        f"{AI_API_BASE_URL}/api/refine",
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=AI_API_TIMEOUT_SECONDS) as upstream:
+            raw = upstream.read().decode("utf-8")
+            status_code = upstream.getcode()
+    except urllib.error.HTTPError as e:
+        status_code = e.code
+        raw = e.read().decode("utf-8", errors="replace")
+    except (urllib.error.URLError, TimeoutError):
+        return jsonify({"ok": False, "error": "AI-Server ist aktuell nicht erreichbar."}), 502
+
+    try:
+        upstream_json = json.loads(raw)
+    except ValueError:
+        return jsonify({"ok": False, "error": "Ungültige Antwort vom AI-Server."}), 502
+
+    if status_code >= 400:
+        return jsonify({"ok": False, "error": upstream_json.get("error", "AI-Server-Fehler.")}), 502
+
+    refined = (upstream_json.get("refined_idea") or "").strip()
+    if not refined:
+        return jsonify({"ok": False, "error": "AI-Antwort ist leer."}), 502
+
+    return jsonify({"ok": True, "refined_idea": refined})
 
 
 @bp.route("/impressum")

@@ -1,0 +1,45 @@
+venv/
+__pycache__/
+.env
+*.env
+ai/.env
+.venv_local/
+
+# Generated trend payloads (per-user JSONs)
+data/
+database/trends.json
+database/trends_user_*.json
+
+# VPN / Secrets
+*.ovpn
+auth.txt
+
+# OS / IDE artifacts
+__MACOSX/
+.DS_Store
+*.tar.gz
+*.bak
+.cursorrules
+C_/
+
+# Logs & temp DBs
+logs/
+*.log
+logs.db
+error.db
+*.db-journal
+
+# Old root-level duplicates (canonical code is in ai/ and web/)
+/check_profi_stats.py
+/cleanup.py
+/clustering_model.py
+/daemon_ai.py
+/daemon_scraper.py
+/database_manager.py
+/feature_pipeline.py
+/main.py
+/manual_ai_test.py
+/reset_tables.py
+/tiktok_scraper.py
+/trend_scoring.py
+/code

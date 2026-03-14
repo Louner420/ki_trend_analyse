@@ -10,5 +10,9 @@ seaborn==0.13.2
 langdetect==1.0.9
 torch==2.7.1
 transformers==4.57.3
+<<<<<<< HEAD
 python-dotenv==1.1.1
 textblob==0.18.0.post0
+=======
+python-dotenv==1.1.1
+>>>>>>> 746edddab3438fb87393415ad8deb9c85fbb5fa0

@@ -26,3 +26,36 @@ Maximilian – Recht & Datenzugang:
 • Ableitung technischer Vorgaben.
 
 Übergreifend prüfen wir, wie die erkannten Trends in konkrete Content-Vorschläge, Posting-Zeitpunkte und messbare Ziele (z. B. Reichweite/CTR) übersetzt werden können und welche Grenzen/Fehlerrisiken bestehen.
+
+## Monorepo-Betrieb
+
+### Datenverzeichnis
+Alle zentralen Datenbanken und JSON-Artefakte liegen im Ordner `database/` im Projektwurzelverzeichnis.
+
+### Schulserver-Sync
+```bash
+bash ~/projects/ai/sync_ai.sh
+```
+
+Optional kann der Code-Deploy auf den Schulserver deaktiviert werden:
+
+```bash
+DEPLOY_CODE=0 bash ~/projects/ai/sync_ai.sh
+```
+
+### API-Server starten
+```bash
+cp ~/projects/ai/.env.example ~/projects/ai/.env
+nano ~/projects/ai/.env
+bash ~/projects/ai/start_api.sh
+```
+
+Die Datei `ai/.env` muss mindestens `LLM_API_KEY=...` enthalten.
+
+### Web-App starten
+```bash
+cd ~/projects/web
+./run.sh
+```
+
+Danach ist die Website lokal unter `http://127.0.0.1:5002/login` erreichbar.
