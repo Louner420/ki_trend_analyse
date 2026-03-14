@@ -7,11 +7,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_DIR = os.getenv("DATA_PATH", os.path.join(BASE_DIR, "data"))
 DB_PATH = os.path.join(DB_DIR, "raw_tiktok.db")
 
-# Löscht Videos, die älter als 7 Tage sind, um die DB schnell zu halten (Monorepo-Struktur)
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(BASE_DIR)
-DB_DIR = os.path.join(PROJECT_ROOT, "database")
-DB_PATH = os.path.join(DB_DIR, "raw_tiktok.db")
 DAYS_TO_KEEP = 7
 
 def clean_database():

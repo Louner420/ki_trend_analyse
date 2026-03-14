@@ -19,6 +19,7 @@ tokenizers==0.22.1
 safetensors==0.7.0
 keras==3.13.0
 protobuf==5.29.5
+textblob==0.18.0.post0
 
 # Backend & API
 Flask==3.1.2
